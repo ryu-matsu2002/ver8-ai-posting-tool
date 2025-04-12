@@ -1,0 +1,112 @@
+<!-- templates/admin_log.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>投稿ログ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            margin-bottom: 10px;
+        }
+        .summary {
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            font-size: 14px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .status-未投稿 { color: orange; font-weight: bold; }
+        .status-生成中 { color: blue; font-weight: bold; }
+        .status-投稿済み { color: green; font-weight: bold; }
+
+        .action-buttons a {
+            margin-right: 8px;
+            text-decoration: none;
+            color: #007BFF;
+        }
+        .action-buttons a:hover {
+            text-decoration: underline;
+        }
+        .filter-form {
+            margin-bottom: 20px;
+        }
+        .filter-form select {
+            padding: 8px;
+            font-size: 14px;
+        }
+        .filter-form button {
+            padding: 8px 14px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>投稿ログ</h1>
+
+    <form method="GET" class="filter-form">
+        <label for="status">ステータスで絞り込み:</label>
+        <select name="status" id="status">
+            <option value="">すべて</option>
+            <option value="未投稿" {% if filter_status == '未投稿' %}selected{% endif %}>未投稿</option>
+            <option value="生成完了" {% if filter_status == '生成完了' %}selected{% endif %}>生成完了</option>
+            <option value="投稿済み" {% if filter_status == '投稿済み' %}selected{% endif %}>投稿済み</option>
+        </select>
+        <button type="submit">絞り込む</button>
+    </form>
+
+    {% if posts %}
+        <div class="summary">記事件数: {{ posts|length }} 件</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>タイトル</th>
+                    <th>ステータス</th>
+                    <th>投稿予定日時（JST）</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for post in posts %}
+                <tr>
+                    <td>{{ post.title }}</td>
+                    <td class="status-{{ post.status }}">{{ post.status }}</td>
+                    <td>
+                        {% if post.scheduled_time %}
+                            {{ post.scheduled_time.astimezone(jst).strftime('%Y-%m-%d %H:%M') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="action-buttons">
+                        <a href="{{ url_for('preview_post', post_id=post.id) }}">プレビュー</a>
+                        <a href="{{ url_for('edit_post', post_id=post.id) }}">編集</a>
+                        <a href="{{ url_for('delete_post', post_id=post.id) }}" onclick="return confirm('本当に削除しますか？');">削除</a>
+                        <a href="{{ url_for('publish_now', post_id=post.id) }}">即時投稿</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>該当する記事は見つかりませんでした。</p>
+    {% endif %}
+
+</body>
+</html>

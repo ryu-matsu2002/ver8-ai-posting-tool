@@ -1,13 +1,13 @@
-# 📄 render.yaml
+# render.yaml
 
 services:
   - type: web
     name: ai-posting-tool
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn flask_main:app  # ✅ 正しい Start Command
+    startCommand: gunicorn wsgi:app
     envVars:
       - key: FLASK_ENV
         value: production
       - key: DATABASE_URL
-        value: <your_postgresql_url>  # ここは本番用に置き換えてください
+        value: <your_postgresql_url>

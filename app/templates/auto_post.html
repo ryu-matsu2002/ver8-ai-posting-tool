@@ -1,0 +1,65 @@
+{# 📄 templates/auto_post.html #}
+{% extends "base.html" %}
+
+{% block title %}記事生成＆自動投稿{% endblock %}
+
+{% block content %}
+    <h1>自動投稿：キーワード＆プロンプト設定</h1>
+
+    <form method="POST">
+        <label for="site_id">投稿先サイトを選択：</label>
+        <select name="site_id" id="site_id" required>
+            {% for site in sites %}
+                <option value="{{ site.id }}">{{ site.site_url }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="keywords">キーワード一覧（最大40個・1行ずつ）:</label>
+        <textarea name="keywords" id="keywords" rows="10" placeholder="例：温泉旅行\n家族連れ\n格安ホテル"></textarea>
+
+        {% if prompt_templates %}
+        <label for="template_select">テンプレートを選択：</label>
+        <select id="template_select" onchange="applyTemplate()">
+            <option value="">テンプレートを選択してください</option>
+            {% for template in prompt_templates %}
+            <option value='{{ {
+                "title_prompt": template.title_prompt,
+                "body_prompt": template.body_prompt
+            } | tojson }}'>{{ template.genre }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+
+        <label for="title_prompt">記事タイトル生成プロンプト:</label>
+        <textarea name="title_prompt" id="title_prompt" rows="6" placeholder="例：以下のキーワードを使ってSEOに強い記事タイトルを1つ生成してください。キーワード: {{keyword}}"></textarea>
+
+        <label for="body_prompt">記事本文生成プロンプト:</label>
+        <textarea name="body_prompt" id="body_prompt" rows="10" placeholder="例：以下のタイトルに基づいてSEOに強い記事を2500～3500文字で書いてください。タイトル: {{title}}"></textarea>
+
+        <button type="submit">記事生成を開始</button>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function applyTemplate() {
+        const select = document.getElementById("template_select");
+        const selected = JSON.parse(select.value);
+        if (selected) {
+            document.getElementById("title_prompt").value = selected.title_prompt;
+            document.getElementById("body_prompt").value = selected.body_prompt;
+        }
+    }
+
+    window.onload = function () {
+        const titlePrompt = sessionStorage.getItem("title_prompt");
+        const bodyPrompt = sessionStorage.getItem("body_prompt");
+        if (titlePrompt && bodyPrompt) {
+            document.getElementById("title_prompt").value = titlePrompt;
+            document.getElementById("body_prompt").value = bodyPrompt;
+            sessionStorage.removeItem("title_prompt");
+            sessionStorage.removeItem("body_prompt");
+        }
+    };
+</script>
+{% endblock %}

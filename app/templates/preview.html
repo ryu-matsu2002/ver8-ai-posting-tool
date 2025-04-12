@@ -1,0 +1,62 @@
+<!-- templates/preview.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ post.title }} - プレビュー</title>
+    <style>
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 40px;
+        }
+        .container {
+            background: #fff;
+            padding: 30px;
+            max-width: 800px;
+            margin: auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .featured-image {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .post-body {
+            color: #444;
+            line-height: 1.8;
+            font-size: 16px;
+        }
+        .post-body p {
+            margin-bottom: 18px;
+        }
+        .post-body img {
+            display: block;
+            margin: 30px auto;
+            max-width: 100%;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ post.title }}</h1>
+
+        {% if post.featured_image %}
+            <img src="{{ post.featured_image }}" class="featured-image" alt="アイキャッチ画像">
+        {% endif %}
+
+        <div class="post-body">
+            {{ post.body|safe }}
+        </div>
+    </div>
+</body>
+</html>

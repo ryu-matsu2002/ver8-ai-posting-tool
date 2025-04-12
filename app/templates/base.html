@@ -1,0 +1,101 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}AI投稿ツール{% endblock %}</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 240px;
+            background-color: #333;
+            color: #fff;
+            padding: 20px;
+        }
+        .sidebar h2 {
+            color: #fff;
+            font-size: 18px;
+            margin-top: 0;
+        }
+        .sidebar a {
+            color: #ddd;
+            text-decoration: none;
+            display: block;
+            padding: 8px 0;
+        }
+        .sidebar a:hover {
+            background-color: #444;
+            padding-left: 4px;
+        }
+        .main {
+            flex-grow: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+        .header {
+            background: #fff;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-bottom: 1px solid #ccc;
+        }
+        .flash-message {
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .flash-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .flash-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="sidebar">
+        <h2>メニュー</h2>
+        <a href="{{ url_for('dashboard') }}">ダッシュボード</a>
+        <a href="{{ url_for('routes.auto_post') }}">記事生成</a>
+        <a href="{{ url_for('routes.prompt_templates') }}">テンプレート管理</a>
+        <a href="{{ url_for('add_site') }}">サイト追加</a>
+        <a href="{{ url_for('logout') }}">ログアウト</a>
+    </div>
+    <div class="main">
+        <div class="header">
+            ログイン中: {{ current_user.username }}
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+</div>
+</body>
+</html>

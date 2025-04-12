@@ -1,0 +1,25 @@
+{# 📄 templates/preview_article.html #}
+{% extends "base.html" %}
+
+{% block title %}記事プレビュー{% endblock %}
+
+{% block content %}
+<h1>記事プレビュー</h1>
+
+<h2>{{ article.title }}</h2>
+
+{% if article.images %}
+    <div style="margin: 20px 0;">
+        <h3>アイキャッチ画像:</h3>
+        <img src="{{ article.images[0] }}" alt="アイキャッチ画像" style="max-width: 100%; border: 1px solid #ccc; border-radius: 4px;">
+    </div>
+{% endif %}
+
+<div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); line-height: 1.8;">
+    {{ article.content | safe }}
+</div>
+
+<div style="margin-top: 30px;">
+    <a href="{{ url_for('dashboard') }}" style="color: #007bff; text-decoration: none;">← ダッシュボードに戻る</a>
+</div>
+{% endblock %}

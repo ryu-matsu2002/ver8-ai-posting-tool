@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>サイト追加</title>
+</head>
+<body>
+    <h1>サイトを追加</h1>
+
+    <form action="{{ url_for('add_site') }}" method="POST">
+        <label for="site_url">サイトURL:</label>
+        <input type="text" name="site_url" id="site_url" required><br><br>
+
+        <label for="wp_username">WordPressユーザー名:</label>
+        <input type="text" name="wp_username" id="wp_username" required><br><br>
+
+        <label for="wp_app_password">WordPressアプリパスワード:</label>
+        <input type="text" name="wp_app_password" id="wp_app_password" required><br><br>
+
+        <button type="submit">サイトを追加</button>
+    </form>
+
+    <a href="{{ url_for('dashboard') }}">ダッシュボードに戻る</a>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>サーバーエラー</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 100px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            font-size: 48px;
+            color: #ff6b6b;
+        }
+        p {
+            font-size: 18px;
+            color: #666;
+        }
+        a {
+            text-decoration: none;
+            color: #007bff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>500 - サーバーエラー</h1>
+    <p>申し訳ありません。サーバーでエラーが発生しました。</p>
+    <p><a href="{{ url_for('dashboard') }}">ダッシュボードに戻る</a></p>
+</body>
+</html>

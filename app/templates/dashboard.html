@@ -1,0 +1,18 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+{% block title %}ダッシュボード{% endblock %}
+{% block content %}
+    <h1>ようこそ、{{ username }} さん</h1>
+    <p>現在登録されているサイト：{{ sites|length }} 件</p>
+    <p>生成済み記事数：{{ articles|length }} 件</p>
+
+    <h2>サイト一覧</h2>
+    <ul>
+        {% for site in sites %}
+            <li>
+                {{ site.site_url }}  
+                <a href="{{ url_for('routes.admin_log', site_id=site.id) }}">[投稿ログを確認]</a>
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}

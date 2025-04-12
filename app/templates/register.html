@@ -1,0 +1,23 @@
+<!-- templates/register.html -->
+{% extends "base.html" %}
+
+{% block title %}ユーザー登録{% endblock %}
+
+{% block content %}
+<h1>ユーザー登録</h1>
+
+<form action="{{ url_for('register') }}" method="POST" style="background: #fff; padding: 30px; border-radius: 8px; max-width: 500px;">
+    <label for="username">ユーザー名:</label><br>
+    <input type="text" id="username" name="username" required style="width: 100%; padding: 10px; margin-bottom: 20px;"><br>
+
+    <label for="email">メールアドレス:</label><br>
+    <input type="email" id="email" name="email" required style="width: 100%; padding: 10px; margin-bottom: 20px;"><br>
+
+    <label for="password">パスワード:</label><br>
+    <input type="password" id="password" name="password" required style="width: 100%; padding: 10px; margin-bottom: 20px;"><br>
+
+    <button type="submit" style="padding: 10px 20px; background-color: #0073aa; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
+        登録
+    </button>
+</form>
+{% endblock %}

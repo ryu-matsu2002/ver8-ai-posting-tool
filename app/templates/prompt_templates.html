@@ -1,0 +1,63 @@
+{# 📄 templates/prompt_templates.html #}
+{% extends "base.html" %}
+
+{% block title %}テンプレート管理{% endblock %}
+
+{% block content %}
+<h1>プロンプトテンプレート管理</h1>
+
+<h2>保存済みテンプレート一覧</h2>
+{% if prompt_templates %}
+<table style="width: 100%; border-collapse: collapse; background: #fff; margin-bottom: 30px;">
+    <thead>
+        <tr style="background-color: #f2f2f2;">
+            <th style="border: 1px solid #ddd; padding: 10px;">ジャンル</th>
+            <th style="border: 1px solid #ddd; padding: 10px;">タイトルプロンプト</th>
+            <th style="border: 1px solid #ddd; padding: 10px;">本文プロンプト</th>
+            <th style="border: 1px solid #ddd; padding: 10px;">操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for template in prompt_templates %}
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 10px;">{{ template.genre }}</td>
+            <td style="border: 1px solid #ddd; padding: 10px;">{{ template.title_prompt[:50] }}...</td>
+            <td style="border: 1px solid #ddd; padding: 10px;">{{ template.body_prompt[:50] }}...</td>
+            <td style="border: 1px solid #ddd; padding: 10px;">
+                <form method="POST" action="{{ url_for('routes.delete_prompt_template', template_id=template.id) }}" style="display: inline-block;">
+                    <button type="submit" onclick="return confirm('削除しますか？')" style="background: #c0392b; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer;">削除</button>
+                </form>
+                <button onclick="copyToAutoPost(`{{ template.title_prompt|e }}`, `{{ template.body_prompt|e }}`)" style="background: #3498db; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer;">自動投稿画面へ反映</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>テンプレートはまだ保存されていません。</p>
+{% endif %}
+
+<h2>新規テンプレートを保存</h2>
+<form method="POST" action="{{ url_for('routes.prompt_templates') }}" style="background: #fff; padding: 20px; border: 1px solid #ccc; border-radius: 8px;">
+    <label for="genre">ジャンル名：</label>
+    <input type="text" name="genre" id="genre" required style="width: 100%; padding: 10px; font-size: 14px;">
+
+    <label for="title_prompt">タイトル生成プロンプト：</label>
+    <textarea name="title_prompt" id="title_prompt" rows="5" required style="width: 100%; padding: 10px; font-size: 14px;"></textarea>
+
+    <label for="body_prompt">本文生成プロンプト：</label>
+    <textarea name="body_prompt" id="body_prompt" rows="8" required style="width: 100%; padding: 10px; font-size: 14px;"></textarea>
+
+    <button type="submit" style="margin-top: 20px; padding: 10px 20px; background-color: #0073aa; color: white; border: none; border-radius: 4px; font-size: 14px;">テンプレートを保存</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function copyToAutoPost(titlePrompt, bodyPrompt) {
+        sessionStorage.setItem('title_prompt', titlePrompt);
+        sessionStorage.setItem('body_prompt', bodyPrompt);
+        window.location.href = "{{ url_for('routes.auto_post') }}";
+    }
+</script>
+{% endblock %}
