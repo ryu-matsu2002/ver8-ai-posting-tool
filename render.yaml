@@ -5,9 +5,9 @@ services:
     name: ai-posting-tool
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app.run:app
+    startCommand: gunicorn flask_main:app  # ✅ 正しい Start Command
     envVars:
       - key: FLASK_ENV
         value: production
       - key: DATABASE_URL
-        value: <your_postgresql_url>  # ここは環境に応じて変更
+        value: <your_postgresql_url>  # ここは本番用に置き換えてください
