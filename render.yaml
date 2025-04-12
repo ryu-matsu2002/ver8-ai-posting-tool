@@ -1,12 +1,13 @@
+# 📄 render.yaml
+
 services:
   - type: web
     name: ai-posting-tool
-    runtime: python
+    env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: flask run --host=0.0.0.0 --port=10000
+    startCommand: gunicorn app.run:app
     envVars:
       - key: FLASK_ENV
         value: production
-      - key: FLASK_APP
-        value: flask_main.py
-    region: oregon
+      - key: DATABASE_URL
+        value: <your_postgresql_url>  # ここは環境に応じて変更
