@@ -2,6 +2,8 @@ from flask import Flask
 from .models import db
 from .routes import routes_bp
 from flask_migrate import Migrate
+from flask import Flask, render_template
+
 
 migrate = Migrate()
 
