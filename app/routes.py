@@ -173,3 +173,24 @@ def delete_prompt_template(template_id):
 def index():
     return redirect(url_for('auth.login'))
 
+# サイト追加ページ
+@routes_bp.route('/add-site', methods=['GET', 'POST'], endpoint='add_site')
+@login_required
+def add_site():
+    if request.method == 'POST':
+        site_url = request.form['site_url']
+        wp_username = request.form['wp_username']
+        wp_app_password = request.form['wp_app_password']
+        
+        new_site = Site(
+            site_url=site_url,
+            wp_username=wp_username,
+            wp_app_password=wp_app_password,
+            user_id=current_user.id
+        )
+        db.session.add(new_site)
+        db.session.commit()
+        flash('サイトを追加しました。')
+        return redirect(url_for('routes.dashboard'))
+
+    return render_template('add_site.html')
