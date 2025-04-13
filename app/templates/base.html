@@ -76,8 +76,9 @@
         <a href="{{ url_for('routes.dashboard') }}">ダッシュボード</a>
         <a href="{{ url_for('routes.auto_post') }}">記事生成</a>
         <a href="{{ url_for('routes.prompt_templates') }}">テンプレート管理</a>
-        <a href="{{ url_for('routes.delete_all_posts', site_id=1) }}">サイト追加</a>  <!-- 任意修正必要 -->
+        <a href="{{ url_for('routes.add_site') }}">サイト追加</a>
         <a href="{{ url_for('auth.logout') }}">ログアウト</a>
+
     </div>
     <div class="main">
         <div class="header">
