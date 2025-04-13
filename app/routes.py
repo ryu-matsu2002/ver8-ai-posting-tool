@@ -166,3 +166,10 @@ def delete_prompt_template(template_id):
     db.session.commit()
     flash('テンプレートを削除しました')
     return redirect(url_for('routes.prompt_templates'))
+
+
+# ✅ トップページ → ログインにリダイレクト
+@routes_bp.route('/')
+def index():
+    return redirect(url_for('auth.login'))
+
