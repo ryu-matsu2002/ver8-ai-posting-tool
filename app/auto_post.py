@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from .models import db, Site, ScheduledPost, PromptTemplate
-from image_search import search_images
+from .image_search import search_images
+
 
 load_dotenv()
 
