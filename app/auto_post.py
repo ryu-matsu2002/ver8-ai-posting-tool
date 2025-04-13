@@ -12,7 +12,7 @@ from flask_login import current_user, login_required
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from models import db, Site, ScheduledPost, PromptTemplate
+from .models import db, Site, ScheduledPost, PromptTemplate
 from image_search import search_images
 
 load_dotenv()
