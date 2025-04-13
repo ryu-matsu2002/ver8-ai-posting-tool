@@ -1,4 +1,4 @@
-# 📄 ファイルパス: my_project/app/auto_post.py
+# 📄 app/auto_post.py
 
 import os
 import threading
@@ -7,12 +7,12 @@ import random
 from datetime import datetime, timedelta
 import pytz
 
-from flask import Blueprint, request, current_app, render_template
+from flask import Blueprint, request, current_app, render_template, redirect, url_for
 from flask_login import current_user, login_required
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from models import db, Site, ScheduledPost
+from models import db, Site, ScheduledPost, PromptTemplate
 from image_search import search_images
 
 load_dotenv()
@@ -96,6 +96,8 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 @login_required
 def auto_post():
     sites = Site.query.filter_by(user_id=current_user.id).all()
+    templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
+
     if request.method == 'POST':
         keywords = request.form.get('keywords', '').splitlines()
         site_id = int(request.form.get('site_id'))
@@ -108,6 +110,6 @@ def auto_post():
             args=(app_instance, keywords, title_prompt, body_prompt, site_id, current_user.id)
         )
         thread.start()
-        return redirect(url_for('dashboard'))  # 後で admin_log に変更
+        return redirect(url_for('routes.dashboard'))  # 必要なら admin_log に変更
 
-    return render_template('auto_post.html', sites=sites)
+    return render_template('auto_post.html', sites=sites, prompt_templates=templates)
