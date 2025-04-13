@@ -7,6 +7,14 @@ import pytz
 
 routes_bp = Blueprint('routes', __name__)
 
+# ✅ ダッシュボードルート（これが必要）
+@routes_bp.route('/dashboard', endpoint='dashboard')
+@login_required
+def dashboard():
+    user_sites = Site.query.filter_by(user_id=current_user.id).all()
+    user_articles = Article.query.join(Site).filter(Site.user_id == current_user.id).all()
+    return render_template('dashboard.html', username=current_user.username, sites=user_sites, articles=user_articles)
+
 # 記事編集
 @routes_bp.route('/edit_article/<int:post_id>', methods=['GET', 'POST'])
 @login_required
@@ -158,11 +166,3 @@ def delete_prompt_template(template_id):
     db.session.commit()
     flash('テンプレートを削除しました')
     return redirect(url_for('routes.prompt_templates'))
-
-# ✅ ダッシュボードルート（これが必要）
-@routes_bp.route('/dashboard', endpoint='dashboard')
-@login_required
-def dashboard():
-    user_sites = Site.query.filter_by(user_id=current_user.id).all()
-    user_articles = Article.query.join(Site).filter(Site.user_id == current_user.id).all()
-    return render_template('dashboard.html', username=current_user.username, sites=user_sites, articles=user_articles)
