@@ -194,3 +194,63 @@ def add_site():
         return redirect(url_for('routes.dashboard'))
 
     return render_template('add_site.html')
+
+# ✅ プレビュー：ScheduledPost
+@routes_bp.route('/preview_post/<int:post_id>')
+@login_required
+def preview_post(post_id):
+    post = ScheduledPost.query.get_or_404(post_id)
+    if post.user_id != current_user.id:
+        flash('閲覧権限がありません')
+        return redirect(url_for('routes.dashboard'))
+    return render_template('preview_article.html', article=post)
+
+# ✅ 編集：ScheduledPost
+@routes_bp.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
+@login_required
+def edit_scheduled_post(post_id):
+    post = ScheduledPost.query.get_or_404(post_id)
+    if post.user_id != current_user.id:
+        flash('編集権限がありません')
+        return redirect(url_for('routes.dashboard'))
+
+    if request.method == 'POST':
+        post.title = request.form['title']
+        post.body = request.form['body']
+        scheduled_time = request.form.get('scheduled_time')
+        if scheduled_time:
+            post.scheduled_time = datetime.strptime(scheduled_time, '%Y-%m-%d %H:%M')
+        db.session.commit()
+        flash('記事を更新しました')
+        return redirect(url_for('routes.admin_log', site_id=post.site_id))
+
+    return render_template('edit_post.html', post=post)
+
+# ✅ 削除：ScheduledPost
+@routes_bp.route('/delete_post/<int:post_id>')
+@login_required
+def delete_scheduled_post(post_id):
+    post = ScheduledPost.query.get_or_404(post_id)
+    if post.user_id != current_user.id:
+        flash('削除権限がありません')
+        return redirect(url_for('routes.dashboard'))
+
+    db.session.delete(post)
+    db.session.commit()
+    flash('記事を削除しました')
+    return redirect(url_for('routes.admin_log', site_id=post.site_id))
+
+# ✅ 即時投稿：ScheduledPost
+@routes_bp.route('/publish_now/<int:post_id>')
+@login_required
+def publish_scheduled_now(post_id):
+    post = ScheduledPost.query.get_or_404(post_id)
+    if post.user_id != current_user.id:
+        flash('投稿権限がありません')
+        return redirect(url_for('routes.dashboard'))
+
+    # TODO: WordPress への実投稿処理が別に必要
+    post.status = "投稿済み"
+    db.session.commit()
+    flash('即時投稿としてマークされました')
+    return redirect(url_for('routes.admin_log', site_id=post.site_id))
