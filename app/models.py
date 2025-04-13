@@ -1,9 +1,6 @@
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask_login import UserMixin
-
-# データベースの初期化
-db = SQLAlchemy()
+from .extensions import db  # ✅ 修正ポイント：正しいdbを使用
 
 # ユーザーモデル
 class User(UserMixin, db.Model):
@@ -89,7 +86,7 @@ class ScheduledPost(db.Model):
     def __repr__(self):
         return f"<ScheduledPost {self.title} @ {self.scheduled_time}>"
 
-# 🔹 プロンプトテンプレートモデル（ジャンルごとに保存）
+# プロンプトテンプレートモデル
 class PromptTemplate(db.Model):
     __tablename__ = 'prompt_templates'
 
