@@ -26,18 +26,24 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         if not site:
             return
 
+        # 日本時間の基準日（0時に丸める）
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
 
         schedule_times = []
         for day in range(30):
             base = now + timedelta(days=day)
+
+            # 1日1〜5記事、平均4記事になるようなウェイト
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
-            hours = random.sample(range(10, 21), k=min(num_posts, 11))
+
+            # 午前10時〜午後21時の中からランダムな時間を抽出（最大11件）
+            hours = random.sample(range(10, 22), k=min(num_posts, 11))
+
             for h in sorted(hours):
                 minute = random.randint(0, 59)
                 post_time = base.replace(hour=h, minute=minute)
-                schedule_times.append(post_time.astimezone(pytz.utc))
+                schedule_times.append(post_time.astimezone(pytz.utc))  # UTCに変換して保存
 
         for i, keyword in enumerate(keywords[:120]):
             try:
@@ -69,7 +75,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 )
                 content = content_response.choices[0].message.content.strip()
 
-                # 画像検索
+                # 画像検索（3枚 → フィーチャード用＋本文用）
                 image_keywords = keyword
                 image_urls = search_images(image_keywords, num_images=3)
                 featured_image = image_urls[0] if image_urls else None
@@ -87,7 +93,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 )
                 db.session.add(post)
                 db.session.commit()
-                time.sleep(5)
+                time.sleep(5)  # 過負荷防止
 
             except Exception as e:
                 print(f"キーワード {keyword} の生成中にエラーが発生しました: {e}")
@@ -110,6 +116,6 @@ def auto_post():
             args=(app_instance, keywords, title_prompt, body_prompt, site_id, current_user.id)
         )
         thread.start()
-        return redirect(url_for('routes.dashboard'))  # 必要なら admin_log に変更
+        return redirect(url_for('routes.dashboard'))
 
     return render_template('auto_post.html', sites=sites, prompt_templates=templates)
