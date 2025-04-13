@@ -17,7 +17,7 @@ def edit_post(post_id):
         post.content = request.form['content']
         db.session.commit()
         flash('記事を更新しました。')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('routes.dashboard'))
     return render_template('edit_article.html', article=post)
 
 # 記事削除
@@ -28,7 +28,7 @@ def delete_post(post_id):
     db.session.delete(post)
     db.session.commit()
     flash('記事を削除しました。')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('routes.dashboard'))
 
 # 記事プレビュー
 @routes_bp.route('/preview_article/<int:post_id>')
@@ -45,14 +45,14 @@ def publish_now(post_id):
     post.status = "投稿済み"
     db.session.commit()
     flash('記事を即時投稿としてマークしました。')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('routes.dashboard'))
 
 # 記事生成を停止（仮機能）
 @routes_bp.route('/stop_generation', methods=['POST'])
 @login_required
 def stop_generation():
     flash('記事生成処理を停止しました（仮）。')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('routes.dashboard'))
 
 # 全記事削除
 @routes_bp.route('/delete_all_posts/<int:site_id>', methods=['POST'])
@@ -63,7 +63,7 @@ def delete_all_posts(site_id):
         db.session.delete(post)
     db.session.commit()
     flash('すべての記事を削除しました。')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('routes.dashboard'))
 
 # 自動投稿ページ（GET:表示 / POST:記事生成の開始）
 @routes_bp.route('/auto-post', methods=['GET', 'POST'])
@@ -105,7 +105,7 @@ def auto_post():
 
         db.session.commit()
         flash(f"{scheduled_count} 件のキーワードを登録し、生成完了として保存しました。")
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('routes.dashboard'))
 
     return render_template('auto_post.html', sites=sites, prompt_templates=templates)
 
@@ -122,7 +122,6 @@ def admin_log(site_id):
     posts = query.order_by(ScheduledPost.scheduled_time.asc()).all()
     jst = pytz.timezone("Asia/Tokyo")
     return render_template('admin_log.html', posts=posts, jst=jst, site_id=site_id, filter_status=filter_status)
-
 
 # プロンプトテンプレート保存＆一覧表示
 @routes_bp.route('/prompt-templates', methods=['GET', 'POST'])
@@ -153,9 +152,17 @@ def delete_prompt_template(template_id):
     template = PromptTemplate.query.get_or_404(template_id)
     if template.user_id != current_user.id:
         flash('削除権限がありません')
-        return redirect(url_for('prompt_templates'))
+        return redirect(url_for('routes.prompt_templates'))
 
     db.session.delete(template)
     db.session.commit()
     flash('テンプレートを削除しました')
-    return redirect(url_for('prompt_templates'))
+    return redirect(url_for('routes.prompt_templates'))
+
+# ✅ ダッシュボードルート（これが必要）
+@routes_bp.route('/dashboard', endpoint='dashboard')
+@login_required
+def dashboard():
+    user_sites = Site.query.filter_by(user_id=current_user.id).all()
+    user_articles = Article.query.join(Site).filter(Site.user_id == current_user.id).all()
+    return render_template('dashboard.html', username=current_user.username, sites=user_sites, articles=user_articles)
