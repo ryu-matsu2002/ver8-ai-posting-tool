@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from app.models import ScheduledPost, Site
-from app.extensions import db
+from app import db
 from datetime import timezone, timedelta
 
 admin_log_bp = Blueprint('admin_log', __name__)
