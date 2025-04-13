@@ -1,9 +1,12 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from .models import db, Article, Site, ScheduledPost, PromptTemplate
-from datetime import datetime, timedelta
-import random
+from datetime import datetime
 import pytz
+import threading
+from .wordpress_post import post_to_wordpress
+
+from .auto_post import generate_and_save_articles  # 🔸追加ポイント
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -86,34 +89,15 @@ def auto_post():
         title_prompt = request.form['title_prompt']
         body_prompt = request.form['body_prompt']
 
-        site = Site.query.get_or_404(site_id)
-        now = datetime.now()
-        scheduled_count = 0
+        app_instance = current_app._get_current_object()
+        thread = threading.Thread(
+            target=generate_and_save_articles,
+            args=(app_instance, keywords, title_prompt, body_prompt, site_id, current_user.id)
+        )
+        thread.start()
 
-        for i, kw in enumerate(keywords[:40]):
-            post_time = now + timedelta(days=i // 4, hours=random.randint(10, 21), minutes=random.randint(0, 59))
-
-            post = ScheduledPost(
-                genre=None,
-                keyword=kw,
-                title="",
-                body="",
-                featured_image=None,
-                status="生成完了",
-                scheduled_time=post_time,
-                created_at=now,
-                site_url=site.site_url,
-                username=site.wp_username,
-                app_password=site.wp_app_password,
-                user_id=current_user.id,
-                site_id=site.id
-            )
-            db.session.add(post)
-            scheduled_count += 1
-
-        db.session.commit()
-        flash(f"{scheduled_count} 件のキーワードを登録し、生成完了として保存しました。")
-        return redirect(url_for('routes.dashboard'))
+        flash("記事生成を開始しました。生成状況はログで確認してください。")
+        return redirect(url_for('routes.admin_log', site_id=site_id))
 
     return render_template('auto_post.html', sites=sites, prompt_templates=templates)
 
@@ -223,7 +207,7 @@ def edit_scheduled_post(post_id):
         flash('記事を更新しました')
         return redirect(url_for('routes.admin_log', site_id=post.site_id))
 
-    return render_template('edit_post.html', post=post)
+    return render_template('edit_article.html', post=post)
 
 # ✅ ScheduledPost：削除
 @routes_bp.route('/delete_post/<int:post_id>')
