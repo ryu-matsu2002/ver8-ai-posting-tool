@@ -7,7 +7,7 @@ import pytz
 
 routes_bp = Blueprint('routes', __name__)
 
-# ✅ ダッシュボードルート（これが必要）
+# ✅ ダッシュボード
 @routes_bp.route('/dashboard', endpoint='dashboard')
 @login_required
 def dashboard():
@@ -15,10 +15,10 @@ def dashboard():
     user_articles = Article.query.join(Site).filter(Site.user_id == current_user.id).all()
     return render_template('dashboard.html', username=current_user.username, sites=user_sites, articles=user_articles)
 
-# 記事編集
+# ✅ Article系：編集
 @routes_bp.route('/edit_article/<int:post_id>', methods=['GET', 'POST'])
 @login_required
-def edit_post(post_id):
+def edit_article(post_id):
     post = Article.query.get_or_404(post_id)
     if request.method == 'POST':
         post.title = request.form['title']
@@ -28,41 +28,41 @@ def edit_post(post_id):
         return redirect(url_for('routes.dashboard'))
     return render_template('edit_article.html', article=post)
 
-# 記事削除
+# ✅ Article系：削除
 @routes_bp.route('/delete_article/<int:post_id>', methods=['GET'])
 @login_required
-def delete_post(post_id):
+def delete_article(post_id):
     post = Article.query.get_or_404(post_id)
     db.session.delete(post)
     db.session.commit()
     flash('記事を削除しました。')
     return redirect(url_for('routes.dashboard'))
 
-# 記事プレビュー
+# ✅ Article系：プレビュー
 @routes_bp.route('/preview_article/<int:post_id>')
 @login_required
-def preview_post(post_id):
+def preview_article(post_id):
     post = Article.query.get_or_404(post_id)
     return render_template('preview_article.html', article=post)
 
-# 即時投稿（仮処理）
+# ✅ Article系：即時投稿（仮）
 @routes_bp.route('/publish_now/<int:post_id>')
 @login_required
-def publish_now(post_id):
+def publish_article_now(post_id):
     post = Article.query.get_or_404(post_id)
     post.status = "投稿済み"
     db.session.commit()
     flash('記事を即時投稿としてマークしました。')
     return redirect(url_for('routes.dashboard'))
 
-# 記事生成を停止（仮機能）
+# ✅ 停止（仮）
 @routes_bp.route('/stop_generation', methods=['POST'])
 @login_required
 def stop_generation():
     flash('記事生成処理を停止しました（仮）。')
     return redirect(url_for('routes.dashboard'))
 
-# 全記事削除
+# ✅ 全記事削除
 @routes_bp.route('/delete_all_posts/<int:site_id>', methods=['POST'])
 @login_required
 def delete_all_posts(site_id):
@@ -73,7 +73,7 @@ def delete_all_posts(site_id):
     flash('すべての記事を削除しました。')
     return redirect(url_for('routes.dashboard'))
 
-# 自動投稿ページ（GET:表示 / POST:記事生成の開始）
+# ✅ 自動投稿ページ
 @routes_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
 def auto_post():
@@ -117,7 +117,7 @@ def auto_post():
 
     return render_template('auto_post.html', sites=sites, prompt_templates=templates)
 
-# 投稿ログページ
+# ✅ 投稿ログ
 @routes_bp.route('/admin/log/<int:site_id>')
 @login_required
 def admin_log(site_id):
@@ -131,7 +131,7 @@ def admin_log(site_id):
     jst = pytz.timezone("Asia/Tokyo")
     return render_template('admin_log.html', posts=posts, jst=jst, site_id=site_id, filter_status=filter_status)
 
-# プロンプトテンプレート保存＆一覧表示
+# ✅ テンプレート登録/一覧
 @routes_bp.route('/prompt-templates', methods=['GET', 'POST'])
 @login_required
 def prompt_templates():
@@ -153,7 +153,7 @@ def prompt_templates():
     templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
     return render_template('prompt_templates.html', prompt_templates=templates)
 
-# テンプレート削除
+# ✅ テンプレート削除
 @routes_bp.route('/prompt-templates/delete/<int:template_id>', methods=['POST'])
 @login_required
 def delete_prompt_template(template_id):
@@ -167,13 +167,12 @@ def delete_prompt_template(template_id):
     flash('テンプレートを削除しました')
     return redirect(url_for('routes.prompt_templates'))
 
-
-# ✅ トップページ → ログインにリダイレクト
+# ✅ トップページ
 @routes_bp.route('/')
 def index():
     return redirect(url_for('auth.login'))
 
-# サイト追加ページ
+# ✅ サイト追加
 @routes_bp.route('/add-site', methods=['GET', 'POST'], endpoint='add_site')
 @login_required
 def add_site():
@@ -181,7 +180,7 @@ def add_site():
         site_url = request.form['site_url']
         wp_username = request.form['wp_username']
         wp_app_password = request.form['wp_app_password']
-        
+
         new_site = Site(
             site_url=site_url,
             wp_username=wp_username,
@@ -195,17 +194,17 @@ def add_site():
 
     return render_template('add_site.html')
 
-# ✅ プレビュー：ScheduledPost
+# ✅ ScheduledPost：プレビュー
 @routes_bp.route('/preview_post/<int:post_id>')
 @login_required
-def preview_post(post_id):
+def preview_scheduled_post(post_id):
     post = ScheduledPost.query.get_or_404(post_id)
     if post.user_id != current_user.id:
         flash('閲覧権限がありません')
         return redirect(url_for('routes.dashboard'))
     return render_template('preview_article.html', article=post)
 
-# ✅ 編集：ScheduledPost
+# ✅ ScheduledPost：編集
 @routes_bp.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
 @login_required
 def edit_scheduled_post(post_id):
@@ -226,7 +225,7 @@ def edit_scheduled_post(post_id):
 
     return render_template('edit_post.html', post=post)
 
-# ✅ 削除：ScheduledPost
+# ✅ ScheduledPost：削除
 @routes_bp.route('/delete_post/<int:post_id>')
 @login_required
 def delete_scheduled_post(post_id):
@@ -240,7 +239,7 @@ def delete_scheduled_post(post_id):
     flash('記事を削除しました')
     return redirect(url_for('routes.admin_log', site_id=post.site_id))
 
-# ✅ 即時投稿：ScheduledPost
+# ✅ ScheduledPost：即時投稿
 @routes_bp.route('/publish_now/<int:post_id>')
 @login_required
 def publish_scheduled_now(post_id):
@@ -249,7 +248,6 @@ def publish_scheduled_now(post_id):
         flash('投稿権限がありません')
         return redirect(url_for('routes.dashboard'))
 
-    # TODO: WordPress への実投稿処理が別に必要
     post.status = "投稿済み"
     db.session.commit()
     flash('即時投稿としてマークされました')

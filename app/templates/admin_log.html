@@ -95,7 +95,7 @@
                         {% endif %}
                     </td>
                     <td class="action-buttons">
-                        <a href="{{ url_for('routes.preview_post', post_id=post.id) }}">プレビュー</a>
+                        <a href="{{ url_for('routes.preview_scheduled_post', post_id=post.id) }}">プレビュー</a>
                         <a href="{{ url_for('routes.edit_scheduled_post', post_id=post.id) }}">編集</a>
                         <a href="{{ url_for('routes.delete_scheduled_post', post_id=post.id) }}" onclick="return confirm('本当に削除しますか？');">削除</a>
                         <a href="{{ url_for('routes.publish_scheduled_now', post_id=post.id) }}">即時投稿</a>
