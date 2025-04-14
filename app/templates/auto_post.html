@@ -9,33 +9,22 @@
     </h1>
 
     <form method="POST" style="display: flex; flex-direction: column; gap: 20px;">
-        {{ form.hidden_tag() }}
+        {{ form.hidden_tag() }}  {# ✅ CSRF対応のため必要 #}
 
         <div>
             <label for="site_id" style="font-weight: bold;">投稿先サイトを選択：</label><br>
-            <select name="site_id" id="site_id" required style="width: 100%; padding: 8px;">
-                {% for site in sites %}
-                    <option value="{{ site.id }}">{{ site.site_url }}</option>
-                {% endfor %}
-            </select>
+            {{ form.site_id(class="form-control", style="width: 100%; padding: 8px;") }}
         </div>
 
         <div>
             <label for="keywords" style="font-weight: bold;">キーワード一覧（最大40個・1行ずつ）:</label><br>
-            <textarea name="keywords" id="keywords" rows="6" style="width: 100%; padding: 10px;" placeholder="例：温泉旅行\n家族連れ\n格安ホテル"></textarea>
+            {{ form.keywords(rows=6, class="form-control", style="width: 100%; padding: 10px;") }}
         </div>
 
-        {% if prompt_templates %}
         <div>
             <label for="template_id" style="font-weight: bold;">テンプレートを選択：</label><br>
-            <select name="template_id" id="template_id" required style="width: 100%; padding: 8px;">
-                <option value="">テンプレートを選択してください</option>
-                {% for template in prompt_templates %}
-                    <option value="{{ template.id }}">{{ template.genre }}</option>
-                {% endfor %}
-            </select>
+            {{ form.template_id(class="form-control", style="width: 100%; padding: 8px;") }}
         </div>
-        {% endif %}
 
         <div style="text-align: center; margin-top: 10px;">
             <button type="submit" style="padding: 10px 30px; background-color: #007bff; color: white; font-weight: bold; border: none; border-radius: 5px; cursor: pointer;">
