@@ -1,5 +1,3 @@
-# 📄 app/auto_post.py
-
 import os
 import threading
 import time
@@ -52,6 +50,10 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         app_password = site.wp_app_password
         site_url = site.site_url
 
+        if not title_prompt or not body_prompt:
+            print("❌ プロンプトが未設定です。中断します。")
+            return
+
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -73,22 +75,20 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
             try:
                 print(f"▶ [{i+1}/{len(keywords)}] 記事生成開始: {keyword}")
-                if not title_prompt or not body_prompt:
-                    raise ValueError("プロンプトが未設定です。")
 
                 # タイトル生成
                 title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
                 title_response = client.chat.completions.create(
-                   model="gpt-4-turbo",
-                   messages=[
-                       {"role": "system", "content": "あなたはSEOに強い記事タイトルの専門家です。"},
-                       {"role": "user", "content": title_full_prompt}
-                   ],
-                   temperature=0.7,
-                   max_tokens=200
+                    model="gpt-4-turbo",
+                    messages=[
+                        {"role": "system", "content": "あなたはSEOに強い記事タイトルの専門家です。"},
+                        {"role": "user", "content": title_full_prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=200
                 )
                 title = title_response.choices[0].message.content.strip().split("\n")[0]
-                if not title or title.strip() == "":
+                if not title:
                     print(f"❌ タイトルが空です（{keyword}）: スキップします")
                     continue
                 print(f"✅ タイトル生成成功: {title}")
@@ -112,7 +112,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 if len(image_urls) > 1:
                     content = insert_images_after_headings(content, image_urls[1:3])
 
-                # 投稿予定時刻
                 scheduled_time = schedule_times[i] if i < len(schedule_times) else datetime.utcnow() + timedelta(days=1)
 
                 # DB保存
@@ -149,8 +148,15 @@ def auto_post():
     if request.method == 'POST':
         keywords = request.form.get('keywords', '').splitlines()
         site_id = int(request.form.get('site_id'))
-        title_prompt = request.form.get('title_prompt')
-        body_prompt = request.form.get('body_prompt')
+        template_id = int(request.form.get('template_id'))
+
+        selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
+        if not selected_template:
+            print("❌ 選択されたテンプレートが見つかりません。")
+            return redirect(url_for('auto_post.auto_post'))
+
+        title_prompt = selected_template.title_prompt
+        body_prompt = selected_template.body_prompt
 
         # 停止フラグを初期化
         control = GenerationControl.query.filter_by(user_id=current_user.id).first()
