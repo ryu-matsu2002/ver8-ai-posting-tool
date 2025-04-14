@@ -59,10 +59,11 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         for day in range(30):
             base = now + timedelta(days=day)
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
-            hours = random.sample(range(10, 22), k=min(num_posts, 11))
-            for h in sorted(hours):
+            hours = sorted(random.sample(range(10, 22), k=min(num_posts, 11)))
+            for h in hours:
                 minute = random.randint(0, 59)
                 post_time = base.replace(hour=h, minute=minute)
+                print(f"▶ 投稿予定: {post_time.strftime('%Y-%m-%d %H:%M')} JST")
                 schedule_times.append(post_time.astimezone(pytz.utc))
 
         for i, keyword in enumerate(keywords[:120]):
@@ -74,7 +75,8 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 print(f"▶ [{i+1}/{len(keywords)}] 記事生成開始: {keyword}")
 
                 title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
-                body_full_prompt = body_prompt.replace("{{title}}", keyword)
+                body_full_prompt = body_prompt.replace("{{title}}", title)  # ←✅ 正しくtitleで置換
+
 
                 title_response = client.chat.completions.create(
                     model="gpt-4-turbo",

@@ -29,7 +29,7 @@ def edit_article(post_id):
         db.session.commit()
         flash('記事を更新しました。')
         return redirect(url_for('routes.dashboard'))
-    return render_template('edit_article.html', post=post)
+    return render_template('edit_article.html', article=post)
 
 # ✅ Article系：削除
 @routes_bp.route('/delete_article/<int:post_id>', methods=['GET'])
