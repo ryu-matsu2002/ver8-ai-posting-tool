@@ -146,12 +146,17 @@ def auto_post():
     if request.method == 'POST':
         keywords = request.form.get('keywords', '').splitlines()
         site_id = int(request.form.get('site_id'))
-        template_id = int(request.form.get('template_id'))
 
-        selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
-        if not selected_template:
-            print("❌ 選択されたテンプレートが見つかりません。")
+        template_id_str = request.form.get('template_id')
+        if not template_id_str or not template_id_str.isdigit():
+            print("❌ テンプレートIDが無効です。")
             return redirect(url_for('auto_post.auto_post'))
+
+    template_id = int(template_id_str)
+    selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
+    if not selected_template:
+        print("❌ 選択されたテンプレートが見つかりません。")
+        return redirect(url_for('auto_post.auto_post'))
 
         title_prompt = selected_template.title_prompt
         body_prompt = selected_template.body_prompt
