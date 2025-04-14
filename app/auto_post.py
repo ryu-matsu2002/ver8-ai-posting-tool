@@ -6,6 +6,8 @@ import time
 import random
 from datetime import datetime, timedelta
 import pytz
+import traceback
+import re
 
 from flask import Blueprint, request, current_app, render_template, redirect, url_for
 from flask_login import current_user, login_required
@@ -20,36 +22,55 @@ load_dotenv()
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+def insert_images_after_headings(content, image_urls):
+    """
+    本文中の<h2>見出しの直後に画像を差し込む関数。
+    最大2枚まで挿入。見出しが足りない場合は末尾に追加。
+    """
+    headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
+    img_tags = [f'<img src="{url}" style="max-width:100%; margin-top:10px;">' for url in image_urls[:2]]
+
+    if not headings:
+        # 見出しが無い場合は末尾に追加
+        return content + "\n\n" + "\n".join(img_tags)
+
+    # 1つ目と2つ目の<h2>の後に挿入
+    new_content = content
+    offset = 0
+    for i in range(min(2, len(headings), len(img_tags))):
+        end = headings[i].end() + offset
+        new_content = new_content[:end] + "\n\n" + img_tags[i] + new_content[end:]
+        offset += len(img_tags[i]) + 2
+    return new_content
+
 def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id, user_id):
     with app.app_context():
         site = Site.query.filter_by(id=site_id, user_id=user_id).first()
         if not site:
+            print("[エラー] サイト情報が見つかりません。")
             return
 
-        # 日本時間の基準日（0時に丸める）
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
 
         schedule_times = []
         for day in range(30):
             base = now + timedelta(days=day)
-
-            # 1日1〜5記事、平均4記事になるようなウェイト
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
             hours = random.sample(range(10, 22), k=min(num_posts, 11))
-
             for h in sorted(hours):
                 minute = random.randint(0, 59)
                 post_time = base.replace(hour=h, minute=minute)
-                schedule_times.append(post_time.astimezone(pytz.utc))  # UTCに変換
+                schedule_times.append(post_time.astimezone(pytz.utc))
 
         for i, keyword in enumerate(keywords[:120]):
             try:
-                # 🔹プロンプト適用
+                print(f"▶ [{i+1}/{len(keywords)}] 記事生成開始: {keyword}")
+
                 title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
                 body_full_prompt = body_prompt.replace("{{title}}", keyword)
 
-                # 🔹タイトル生成
+                # タイトル生成
                 title_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -60,8 +81,9 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     max_tokens=200
                 )
                 title = title_response.choices[0].message.content.strip().split("\n")[0]
+                print(f"✅ タイトル生成成功: {title}")
 
-                # 🔹本文生成
+                # 本文生成
                 content_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -73,16 +95,15 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 )
                 content = content_response.choices[0].message.content.strip()
 
-                # 🔹画像検索（3枚）
+                # 画像取得（最大3枚）
                 image_urls = search_images(keyword, num_images=3)
                 featured_image = image_urls[0] if image_urls else None
 
-                # 🔹本文に画像2枚を挿入（2枚目・3枚目を末尾に追加）
+                # 本文中に2枚まで挿入（見出し下）
                 if len(image_urls) > 1:
-                    for img_url in image_urls[1:]:
-                        content += f'\n\n<img src="{img_url}" style="max-width:100%;">'
+                    content = insert_images_after_headings(content, image_urls[1:3])
 
-                # 🔹DB保存
+                # DB保存
                 post = ScheduledPost(
                     title=title,
                     body=content,
@@ -95,10 +116,12 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 )
                 db.session.add(post)
                 db.session.commit()
-                time.sleep(5)  # 過負荷防止
+                print(f"✅ 保存成功: {title}")
+                time.sleep(5)
 
             except Exception as e:
-                print(f"キーワード {keyword} の生成中にエラーが発生しました: {e}")
+                print(f"❌ エラー発生（{keyword}）: {e}")
+                traceback.print_exc()
 
 @auto_post_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
@@ -118,6 +141,6 @@ def auto_post():
             args=(app_instance, keywords, title_prompt, body_prompt, site_id, current_user.id)
         )
         thread.start()
-        return redirect(url_for('routes.dashboard'))
+        return redirect(url_for('routes.admin_log', site_id=site_id))
 
     return render_template('auto_post.html', sites=sites, prompt_templates=templates)
