@@ -73,8 +73,11 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
             try:
                 print(f"▶ [{i+1}/{len(keywords)}] 記事生成開始: {keyword}")
-                title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
+                if not title_prompt or not body_prompt:
+                    raise ValueError("プロンプトが未設定です。")
 
+                # タイトル生成
+                title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
                 title_response = client.chat.completions.create(
                    model="gpt-4-turbo",
                    messages=[
@@ -85,37 +88,41 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                    max_tokens=200
                 )
                 title = title_response.choices[0].message.content.strip().split("\n")[0]
-                if not title:
+                if not title or title.strip() == "":
                     print(f"❌ タイトルが空です（{keyword}）: スキップします")
                     continue
                 print(f"✅ タイトル生成成功: {title}")
 
+                # 本文生成
                 body_full_prompt = body_prompt.replace("{{title}}", title)
-                
                 content_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
                         {"role": "system", "content": "あなたはSEO記事ライターです。"},
-                        {"role": "user", "content": body_full_prompt.replace("{{title}}", title)}
+                        {"role": "user", "content": body_full_prompt}
                     ],
                     temperature=0.7,
                     max_tokens=3000
                 )
                 content = content_response.choices[0].message.content.strip()
 
+                # 画像取得と挿入
                 image_urls = search_images(keyword, num_images=3)
                 featured_image = image_urls[0] if image_urls else None
-
                 if len(image_urls) > 1:
                     content = insert_images_after_headings(content, image_urls[1:3])
 
+                # 投稿予定時刻
+                scheduled_time = schedule_times[i] if i < len(schedule_times) else datetime.utcnow() + timedelta(days=1)
+
+                # DB保存
                 post = ScheduledPost(
                     title=title,
                     body=content,
                     keyword=keyword,
                     featured_image=featured_image,
                     status="生成完了",
-                    scheduled_time=schedule_times[i],
+                    scheduled_time=scheduled_time,
                     created_at=datetime.utcnow(),
                     site_url=site_url,
                     username=username,
@@ -145,7 +152,7 @@ def auto_post():
         title_prompt = request.form.get('title_prompt')
         body_prompt = request.form.get('body_prompt')
 
-        # 停止フラグをFalseに初期化
+        # 停止フラグを初期化
         control = GenerationControl.query.filter_by(user_id=current_user.id).first()
         if not control:
             control = GenerationControl(user_id=current_user.id, stop_flag=False)
