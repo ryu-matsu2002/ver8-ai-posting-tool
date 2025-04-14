@@ -73,23 +73,25 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
             try:
                 print(f"▶ [{i+1}/{len(keywords)}] 記事生成開始: {keyword}")
-
                 title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
-                body_full_prompt = body_prompt.replace("{{title}}", title)  # ←✅ 正しくtitleで置換
-
 
                 title_response = client.chat.completions.create(
-                    model="gpt-4-turbo",
-                    messages=[
-                        {"role": "system", "content": "あなたはSEOに強い記事タイトルの専門家です。"},
-                        {"role": "user", "content": title_full_prompt}
-                    ],
-                    temperature=0.7,
-                    max_tokens=200
+                   model="gpt-4-turbo",
+                   messages=[
+                       {"role": "system", "content": "あなたはSEOに強い記事タイトルの専門家です。"},
+                       {"role": "user", "content": title_full_prompt}
+                   ],
+                   temperature=0.7,
+                   max_tokens=200
                 )
                 title = title_response.choices[0].message.content.strip().split("\n")[0]
+                if not title:
+                    print(f"❌ タイトルが空です（{keyword}）: スキップします")
+                    continue
                 print(f"✅ タイトル生成成功: {title}")
 
+                body_full_prompt = body_prompt.replace("{{title}}", title)
+                
                 content_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
