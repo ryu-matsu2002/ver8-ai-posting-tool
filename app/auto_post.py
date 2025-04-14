@@ -49,7 +49,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
             return
 
         username = site.wp_username
-        app_password = site.app_password
+        app_password = site.wp_app_password
         site_url = site.site_url
 
         jst = pytz.timezone("Asia/Tokyo")
