@@ -15,7 +15,6 @@ from openai import OpenAI
 from .models import db, Site, ScheduledPost, PromptTemplate
 from .image_search import search_images
 
-
 load_dotenv()
 
 auto_post_bp = Blueprint("auto_post", __name__)
@@ -37,22 +36,20 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
             # 1日1〜5記事、平均4記事になるようなウェイト
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
-
-            # 午前10時〜午後21時の中からランダムな時間を抽出（最大11件）
             hours = random.sample(range(10, 22), k=min(num_posts, 11))
 
             for h in sorted(hours):
                 minute = random.randint(0, 59)
                 post_time = base.replace(hour=h, minute=minute)
-                schedule_times.append(post_time.astimezone(pytz.utc))  # UTCに変換して保存
+                schedule_times.append(post_time.astimezone(pytz.utc))  # UTCに変換
 
         for i, keyword in enumerate(keywords[:120]):
             try:
-                # ユーザー入力プロンプトを適用
+                # 🔹プロンプト適用
                 title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
                 body_full_prompt = body_prompt.replace("{{title}}", keyword)
 
-                # タイトル生成
+                # 🔹タイトル生成
                 title_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -64,7 +61,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 )
                 title = title_response.choices[0].message.content.strip().split("\n")[0]
 
-                # 本文生成
+                # 🔹本文生成
                 content_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -76,17 +73,21 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 )
                 content = content_response.choices[0].message.content.strip()
 
-                # 画像検索（3枚 → フィーチャード用＋本文用）
-                image_keywords = keyword
-                image_urls = search_images(image_keywords, num_images=3)
+                # 🔹画像検索（3枚）
+                image_urls = search_images(keyword, num_images=3)
                 featured_image = image_urls[0] if image_urls else None
 
+                # 🔹本文に画像2枚を挿入（2枚目・3枚目を末尾に追加）
+                if len(image_urls) > 1:
+                    for img_url in image_urls[1:]:
+                        content += f'\n\n<img src="{img_url}" style="max-width:100%;">'
+
+                # 🔹DB保存
                 post = ScheduledPost(
                     title=title,
                     body=content,
                     keyword=keyword,
                     featured_image=featured_image,
-                    images=image_urls,
                     status="生成完了",
                     scheduled_time=schedule_times[i],
                     site_id=site_id,
