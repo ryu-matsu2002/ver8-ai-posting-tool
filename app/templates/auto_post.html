@@ -1,3 +1,4 @@
+{# 📄 templates/auto_post.html #}
 {% extends "base.html" %}
 
 {% block title %}記事生成＆自動投稿{% endblock %}
@@ -25,15 +26,23 @@
 
         {% if prompt_templates %}
         <div>
-            <label for="template_id" style="font-weight: bold;">テンプレートを選択：</label><br>
-            <select name="template_id" id="template_id" required style="width: 100%; padding: 8px;">
+            <label for="template_select" style="font-weight: bold;">テンプレートを選択：</label><br>
+            <select name="template_id" id="template_select" onchange="applyTemplate()" style="width: 100%; padding: 8px;" required>
                 <option value="">テンプレートを選択してください</option>
                 {% for template in prompt_templates %}
-                    <option value="{{ template.id }}">{{ template.genre }}</option>
+                <option value="{{ template.id }}"
+                        data-title="{{ template.title_prompt | e }}"
+                        data-body="{{ template.body_prompt | e }}">
+                    {{ template.genre }}
+                </option>
                 {% endfor %}
             </select>
         </div>
         {% endif %}
+
+        <!-- 非表示のプロンプト送信用 -->
+        <input type="hidden" name="title_prompt" id="title_prompt">
+        <input type="hidden" name="body_prompt" id="body_prompt">
 
         <div style="text-align: center; margin-top: 10px;">
             <button type="submit" style="padding: 10px 30px; background-color: #007bff; color: white; font-weight: bold; border: none; border-radius: 5px; cursor: pointer;">
@@ -42,4 +51,19 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function applyTemplate() {
+        const select = document.getElementById("template_select");
+        const selected = select.options[select.selectedIndex];
+        const title = selected.getAttribute("data-title");
+        const body = selected.getAttribute("data-body");
+        if (title && body) {
+            document.getElementById("title_prompt").value = title;
+            document.getElementById("body_prompt").value = body;
+        }
+    }
+</script>
 {% endblock %}
