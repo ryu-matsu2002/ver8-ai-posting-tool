@@ -1,16 +1,21 @@
+# app/auth.py
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, logout_user, login_required
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from .models import db, User
+from .forms import LoginForm  # ✅ LoginForm をインポート
 
 auth_bp = Blueprint('auth', __name__)
 
 # ログイン
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+    form = LoginForm()  # ✅ フォームをインスタンス化
+    if form.validate_on_submit():
+        email = form.email.data
+        password = form.password.data
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
@@ -18,7 +23,7 @@ def login():
             return redirect(url_for('routes.dashboard'))
         else:
             flash('メールアドレスまたはパスワードが間違っています。')
-    return render_template('login.html')
+    return render_template('login.html', form=form)  # ✅ form をテンプレートに渡す
 
 # ログアウト
 @auth_bp.route('/logout')
