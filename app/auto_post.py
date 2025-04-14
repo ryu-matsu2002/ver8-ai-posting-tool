@@ -140,16 +140,13 @@ def auto_post():
     templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
 
     if request.method == 'POST':
-        keywords = request.form.get('keywords', '').splitlines()
-        site_id = request.form.get('site_id')
-        template_id = request.form.get('template_id')
-
-        if not site_id or not template_id or not template_id.isdigit():
-            print("❌ フォーム入力が不正です")
+        try:
+            keywords = request.form.get('keywords', '').splitlines()
+            site_id = int(request.form.get('site_id'))
+            template_id = int(request.form.get('template_id'))
+        except Exception as e:
+            print("❌ フォーム入力が不正です", e)
             return redirect(url_for('auto_post.auto_post'))
-
-        site_id = int(site_id)
-        template_id = int(template_id)
 
         selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
         if not selected_template:
