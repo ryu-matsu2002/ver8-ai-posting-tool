@@ -25,10 +25,8 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 def insert_images_after_headings(content, image_urls):
     headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
     img_tags = [f'<img src="{url}" style="max-width:100%; margin-top:10px;">' for url in image_urls[:2]]
-
     if not headings:
         return content + "\n\n" + "\n".join(img_tags)
-
     new_content = content
     offset = 0
     for i in range(min(2, len(headings), len(img_tags))):
@@ -74,11 +72,9 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
             if is_generation_stopped(user_id):
                 print("🛑 停止フラグが検出されたため、記事生成を中断します。")
                 break
-
             try:
                 print(f"▶ [{i+1}/{len(keywords)}] 記事生成開始: {keyword}")
                 title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
-
                 title_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -145,18 +141,20 @@ def auto_post():
 
     if request.method == 'POST':
         keywords = request.form.get('keywords', '').splitlines()
-        site_id = int(request.form.get('site_id'))
+        site_id = request.form.get('site_id')
+        template_id = request.form.get('template_id')
 
-        template_id_str = request.form.get('template_id')
-        if not template_id_str or not template_id_str.isdigit():
-            print("❌ テンプレートIDが無効です。")
+        if not site_id or not template_id or not template_id.isdigit():
+            print("❌ フォーム入力が不正です")
             return redirect(url_for('auto_post.auto_post'))
 
-    template_id = int(template_id_str)
-    selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
-    if not selected_template:
-        print("❌ 選択されたテンプレートが見つかりません。")
-        return redirect(url_for('auto_post.auto_post'))
+        site_id = int(site_id)
+        template_id = int(template_id)
+
+        selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
+        if not selected_template:
+            print("❌ 選択されたテンプレートが見つかりません。")
+            return redirect(url_for('auto_post.auto_post'))
 
         title_prompt = selected_template.title_prompt
         body_prompt = selected_template.body_prompt
