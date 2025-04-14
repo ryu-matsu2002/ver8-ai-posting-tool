@@ -6,11 +6,13 @@
 <h1>ログイン</h1>
 
 <form action="{{ url_for('auth.login') }}" method="POST" style="background: #fff; padding: 30px; border-radius: 8px; max-width: 500px;">
+    {{ form.csrf_token }}  <!-- ✅ CSRFトークンを追加 -->
+
     <label for="email">メールアドレス:</label><br>
-    <input type="email" id="email" name="email" required style="width: 100%; padding: 10px; margin-bottom: 20px;"><br>
+    {{ form.email(size=32, id="email", class_="form-control", required=True) }}<br><br>
 
     <label for="password">パスワード:</label><br>
-    <input type="password" id="password" name="password" required style="width: 100%; padding: 10px; margin-bottom: 20px;"><br>
+    {{ form.password(size=32, id="password", class_="form-control", required=True) }}<br><br>
 
     <button type="submit" style="padding: 10px 20px; background-color: #0073aa; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
         ログイン

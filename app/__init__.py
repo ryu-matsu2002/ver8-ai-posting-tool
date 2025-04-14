@@ -6,10 +6,11 @@ from .extensions import db, login_manager
 from .models import User
 from .routes import routes_bp
 from .auth import auth_bp
-from .scheduler import init_app  # ✅ スケジューラーをインポート
+from .auto_post import auto_post_bp
+from .scheduler import init_app
 from config import Config
 
-csrf = CSRFProtect()  # ✅ CSRF保護のインスタンス生成
+csrf = CSRFProtect()  # ✅ CSRF保護インスタンス生成
 
 def create_app():
     app = Flask(__name__)
@@ -17,12 +18,13 @@ def create_app():
 
     db.init_app(app)
     login_manager.init_app(app)
-    csrf.init_app(app)  # ✅ CSRF保護をFlaskアプリに登録
+    csrf.init_app(app)  # ✅ CSRF保護を初期化
 
     login_manager.login_view = 'auth.login'
 
     app.register_blueprint(routes_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(auto_post_bp)  # ✅ 忘れずに登録
 
     init_app(app)
 
