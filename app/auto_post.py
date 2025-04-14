@@ -31,10 +31,8 @@ def insert_images_after_headings(content, image_urls):
     img_tags = [f'<img src="{url}" style="max-width:100%; margin-top:10px;">' for url in image_urls[:2]]
 
     if not headings:
-        # 見出しが無い場合は末尾に追加
         return content + "\n\n" + "\n".join(img_tags)
 
-    # 1つ目と2つ目の<h2>の後に挿入
     new_content = content
     offset = 0
     for i in range(min(2, len(headings), len(img_tags))):
@@ -49,6 +47,10 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         if not site:
             print("[エラー] サイト情報が見つかりません。")
             return
+
+        site_url = site.site_url
+        username = site.username
+        app_password = site.app_password
 
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -70,7 +72,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
                 body_full_prompt = body_prompt.replace("{{title}}", keyword)
 
-                # タイトル生成
                 title_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -83,7 +84,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 title = title_response.choices[0].message.content.strip().split("\n")[0]
                 print(f"✅ タイトル生成成功: {title}")
 
-                # 本文生成
                 content_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -95,15 +95,12 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 )
                 content = content_response.choices[0].message.content.strip()
 
-                # 画像取得（最大3枚）
                 image_urls = search_images(keyword, num_images=3)
                 featured_image = image_urls[0] if image_urls else None
 
-                # 本文中に2枚まで挿入（見出し下）
                 if len(image_urls) > 1:
                     content = insert_images_after_headings(content, image_urls[1:3])
 
-                # DB保存
                 post = ScheduledPost(
                     title=title,
                     body=content,
@@ -111,8 +108,12 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     featured_image=featured_image,
                     status="生成完了",
                     scheduled_time=schedule_times[i],
-                    site_id=site_id,
-                    user_id=user_id
+                    created_at=datetime.utcnow(),
+                    site_url=site_url,
+                    username=username,
+                    app_password=app_password,
+                    user_id=user_id,
+                    site_id=site_id
                 )
                 db.session.add(post)
                 db.session.commit()
@@ -122,6 +123,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
             except Exception as e:
                 print(f"❌ エラー発生（{keyword}）: {e}")
                 traceback.print_exc()
+                db.session.rollback()
 
 @auto_post_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
