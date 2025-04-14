@@ -49,13 +49,6 @@ def preview_article(post_id):
     return render_template('preview_article.html', article=post)
 
 
-# ✅ 停止（仮）
-@routes_bp.route('/stop_generation', methods=['POST'])
-@login_required
-def stop_generation():
-    flash('記事生成処理を停止しました（仮）。')
-    return redirect(url_for('routes.dashboard'))
-
 # ✅ 全記事削除
 @routes_bp.route('/delete_all_posts/<int:site_id>', methods=['POST'])
 @login_required
