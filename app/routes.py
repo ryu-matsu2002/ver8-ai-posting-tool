@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
-from .models import db, Article, Site, ScheduledPost, PromptTemplate
+from .models import db, Article, Site, ScheduledPost, PromptTemplate, GenerationControl
 from datetime import datetime
 import pytz
 import threading
@@ -48,15 +48,6 @@ def preview_article(post_id):
     post = Article.query.get_or_404(post_id)
     return render_template('preview_article.html', article=post)
 
-# ✅ Article系：即時投稿（仮）
-@routes_bp.route('/publish_now/<int:post_id>')
-@login_required
-def publish_article_now(post_id):
-    post = Article.query.get_or_404(post_id)
-    post.status = "投稿済み"
-    db.session.commit()
-    flash('記事を即時投稿としてマークしました。')
-    return redirect(url_for('routes.dashboard'))
 
 # ✅ 停止（仮）
 @routes_bp.route('/stop_generation', methods=['POST'])
@@ -229,10 +220,34 @@ def delete_scheduled_post(post_id):
 def publish_scheduled_now(post_id):
     post = ScheduledPost.query.get_or_404(post_id)
     if post.user_id != current_user.id:
-        flash('投稿権限がありません')
-        return redirect(url_for('routes.dashboard'))
+        return "権限がありません", 403
 
-    post.status = "投稿済み"
-    db.session.commit()
-    flash('即時投稿としてマークされました')
+    success = post_to_wordpress(
+        site_url=post.site_url,
+        wp_username=post.username,
+        wp_app_password=post.app_password,
+        title=post.title,
+        content=post.body,
+        images=[post.featured_image] if post.featured_image else []
+    )
+    if success:
+        post.status = '投稿済み'
+        db.session.commit()
+        flash('投稿が完了しました', 'success')
+    else:
+        flash('投稿に失敗しました', 'error')
+
     return redirect(url_for('routes.admin_log', site_id=post.site_id))
+
+@routes_bp.route('/stop_generation', methods=['POST'])
+@login_required
+def stop_generation():
+    control = GenerationControl.query.filter_by(user_id=current_user.id).first()
+    if not control:
+        control = GenerationControl(user_id=current_user.id, stop_flag=True)
+        db.session.add(control)
+    else:
+        control.stop_flag = True
+    db.session.commit()
+    flash('記事生成を停止しました。')
+    return redirect(url_for('routes.dashboard'))

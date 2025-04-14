@@ -14,7 +14,7 @@ from flask_login import current_user, login_required
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from .models import db, Site, ScheduledPost, PromptTemplate
+from .models import db, Site, ScheduledPost, PromptTemplate, GenerationControl
 from .image_search import search_images
 
 load_dotenv()
@@ -23,10 +23,6 @@ auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def insert_images_after_headings(content, image_urls):
-    """
-    本文中の<h2>見出しの直後に画像を差し込む関数。
-    最大2枚まで挿入。見出しが足りない場合は末尾に追加。
-    """
     headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
     img_tags = [f'<img src="{url}" style="max-width:100%; margin-top:10px;">' for url in image_urls[:2]]
 
@@ -41,6 +37,10 @@ def insert_images_after_headings(content, image_urls):
         offset += len(img_tags[i]) + 2
     return new_content
 
+def is_generation_stopped(user_id):
+    control = GenerationControl.query.filter_by(user_id=user_id).first()
+    return control and control.stop_flag
+
 def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id, user_id):
     with app.app_context():
         site = Site.query.filter_by(id=site_id, user_id=user_id).first()
@@ -48,9 +48,9 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
             print("[エラー] サイト情報が見つかりません。")
             return
 
-        site_url = site.site_url
-        username = site.username
+        username = site.wp_username
         app_password = site.app_password
+        site_url = site.site_url
 
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -66,6 +66,10 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 schedule_times.append(post_time.astimezone(pytz.utc))
 
         for i, keyword in enumerate(keywords[:120]):
+            if is_generation_stopped(user_id):
+                print("🛑 停止フラグが検出されたため、記事生成を中断します。")
+                break
+
             try:
                 print(f"▶ [{i+1}/{len(keywords)}] 記事生成開始: {keyword}")
 
@@ -136,6 +140,15 @@ def auto_post():
         site_id = int(request.form.get('site_id'))
         title_prompt = request.form.get('title_prompt')
         body_prompt = request.form.get('body_prompt')
+
+        # 停止フラグをFalseに初期化
+        control = GenerationControl.query.filter_by(user_id=current_user.id).first()
+        if not control:
+            control = GenerationControl(user_id=current_user.id, stop_flag=False)
+            db.session.add(control)
+        else:
+            control.stop_flag = False
+        db.session.commit()
 
         app_instance = current_app._get_current_object()
         thread = threading.Thread(

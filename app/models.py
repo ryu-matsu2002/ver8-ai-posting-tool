@@ -100,3 +100,10 @@ class PromptTemplate(db.Model):
 
     def __repr__(self):
         return f"<PromptTemplate {self.genre}>"
+
+# ✅ 最下部などに追加
+class GenerationControl(db.Model):
+    __tablename__ = "generation_control"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False, unique=True)
+    stop_flag = db.Column(db.Boolean, default=False)

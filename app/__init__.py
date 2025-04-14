@@ -3,6 +3,7 @@ from .extensions import db, login_manager
 from .models import User
 from .routes import routes_bp
 from .auth import auth_bp
+from .scheduler import init_app  # ✅ スケジューラーをインポート
 from config import Config
 
 def create_app():
@@ -15,6 +16,9 @@ def create_app():
 
     app.register_blueprint(routes_bp)
     app.register_blueprint(auth_bp, url_prefix="/auth")
+
+    # ✅ スケジューラーの初期化（WordPress投稿の定期実行）
+    init_app(app)
 
     @login_manager.user_loader
     def load_user(user_id):
