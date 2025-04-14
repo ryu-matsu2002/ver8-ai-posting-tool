@@ -16,9 +16,9 @@ from openai import OpenAI
 
 from .models import db, Site, ScheduledPost, PromptTemplate, GenerationControl
 from .image_search import search_images
+from .forms import AutoPostForm  # ✅ CSRF対応フォーム
 
 load_dotenv()
-
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -51,7 +51,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         site_url = site.site_url
 
         if not title_prompt or not body_prompt:
-            print("❌ プロンプトが未設定です。中断します。")
+            print("❌ プロンプトが未設定です。")
             return
 
         jst = pytz.timezone("Asia/Tokyo")
@@ -65,16 +65,21 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
             for h in hours:
                 minute = random.randint(0, 59)
                 post_time = base.replace(hour=h, minute=minute)
-                print(f"▶ 投稿予定: {post_time.strftime('%Y-%m-%d %H:%M')} JST")
                 schedule_times.append(post_time.astimezone(pytz.utc))
 
         for i, keyword in enumerate(keywords[:120]):
             if is_generation_stopped(user_id):
-                print("🛑 停止フラグが検出されたため、記事生成を中断します。")
+                print("🛑 停止フラグ検出。中断。")
                 break
             try:
-                print(f"▶ [{i+1}/{len(keywords)}] 記事生成開始: {keyword}")
+                print(f"\n▶ [{i+1}/{len(keywords)}] キーワード: {keyword}")
+
                 title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
+                if "{{" in title_full_prompt or "}}" in title_full_prompt:
+                    print("❌ タイトルプロンプト置換失敗 → スキップ")
+                    continue
+                print("🧠 タイトル用プロンプト:", title_full_prompt)
+
                 title_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -82,15 +87,20 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                         {"role": "user", "content": title_full_prompt}
                     ],
                     temperature=0.7,
-                    max_tokens=200
+                    max_tokens=100
                 )
                 title = title_response.choices[0].message.content.strip().split("\n")[0]
-                if not title:
-                    print(f"❌ タイトルが空です（{keyword}）: スキップします")
+                if not title or len(title) < 5:
+                    print(f"❌ タイトルが無効（{keyword}）")
                     continue
-                print(f"✅ タイトル生成成功: {title}")
+                print("✅ タイトル生成:", title)
 
                 body_full_prompt = body_prompt.replace("{{title}}", title)
+                if "{{" in body_full_prompt or "}}" in body_full_prompt:
+                    print("❌ 本文プロンプト置換失敗 → スキップ")
+                    continue
+                print("🧠 本文用プロンプト:", body_full_prompt[:200], "...")
+
                 content_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -98,9 +108,12 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                         {"role": "user", "content": body_full_prompt}
                     ],
                     temperature=0.7,
-                    max_tokens=3000
+                    max_tokens=2000
                 )
                 content = content_response.choices[0].message.content.strip()
+                if not content or len(content) < 100:
+                    print("❌ 本文が短すぎる → スキップ")
+                    continue
 
                 image_urls = search_images(keyword, num_images=3)
                 featured_image = image_urls[0] if image_urls else None
@@ -125,28 +138,27 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 )
                 db.session.add(post)
                 db.session.commit()
-                print(f"✅ 保存成功: {title}")
+                print(f"✅ 保存完了: {title}")
                 time.sleep(5)
 
             except Exception as e:
-                print(f"❌ エラー発生（{keyword}）: {e}")
+                print(f"❌ 例外発生（{keyword}）: {e}")
                 traceback.print_exc()
                 db.session.rollback()
 
 @auto_post_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
 def auto_post():
+    form = AutoPostForm()
     sites = Site.query.filter_by(user_id=current_user.id).all()
     templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
+    form.site_id.choices = [(site.id, site.site_url) for site in sites]
+    form.template_id.choices = [(tpl.id, tpl.genre) for tpl in templates]
 
-    if request.method == 'POST':
-        try:
-            keywords = request.form.get('keywords', '').splitlines()
-            site_id = int(request.form.get('site_id'))
-            template_id = int(request.form.get('template_id'))
-        except Exception as e:
-            print("❌ フォーム入力が不正です", e)
-            return redirect(url_for('auto_post.auto_post'))
+    if form.validate_on_submit():
+        keywords = form.keywords.data.strip().splitlines()
+        site_id = form.site_id.data
+        template_id = form.template_id.data
 
         selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
         if not selected_template:
@@ -172,4 +184,4 @@ def auto_post():
         thread.start()
         return redirect(url_for('routes.admin_log', site_id=site_id))
 
-    return render_template('auto_post.html', sites=sites, prompt_templates=templates)
+    return render_template('auto_post.html', form=form, sites=sites, prompt_templates=templates)

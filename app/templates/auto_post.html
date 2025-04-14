@@ -9,8 +9,8 @@
     </h1>
 
     <form method="POST" style="display: flex; flex-direction: column; gap: 20px;">
-        {{ csrf_token() }}
-        
+        {{ form.hidden_tag() }}
+
         <div>
             <label for="site_id" style="font-weight: bold;">投稿先サイトを選択：</label><br>
             <select name="site_id" id="site_id" required style="width: 100%; padding: 8px;">
