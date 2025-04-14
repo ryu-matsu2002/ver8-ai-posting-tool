@@ -77,9 +77,8 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
             try:
                 print(f"▶ [{i+1}/{len(keywords)}] 記事生成開始: {keyword}")
-
-                # タイトル生成
                 title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
+
                 title_response = client.chat.completions.create(
                     model="gpt-4-turbo",
                     messages=[
@@ -95,7 +94,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     continue
                 print(f"✅ タイトル生成成功: {title}")
 
-                # 本文生成
                 body_full_prompt = body_prompt.replace("{{title}}", title)
                 content_response = client.chat.completions.create(
                     model="gpt-4-turbo",
@@ -108,7 +106,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 )
                 content = content_response.choices[0].message.content.strip()
 
-                # 画像取得と挿入
                 image_urls = search_images(keyword, num_images=3)
                 featured_image = image_urls[0] if image_urls else None
                 if len(image_urls) > 1:
@@ -116,7 +113,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
                 scheduled_time = schedule_times[i] if i < len(schedule_times) else datetime.utcnow() + timedelta(days=1)
 
-                # DB保存
                 post = ScheduledPost(
                     title=title,
                     body=content,
@@ -160,7 +156,6 @@ def auto_post():
         title_prompt = selected_template.title_prompt
         body_prompt = selected_template.body_prompt
 
-        # 停止フラグを初期化
         control = GenerationControl.query.filter_by(user_id=current_user.id).first()
         if not control:
             control = GenerationControl(user_id=current_user.id, stop_flag=False)
