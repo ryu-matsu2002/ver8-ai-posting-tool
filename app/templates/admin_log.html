@@ -17,6 +17,7 @@
             color: white;
             height: 100vh;
             padding: 20px;
+            box-sizing: border-box;
         }
         .sidebar h2 {
             font-size: 20px;
@@ -35,6 +36,7 @@
         .main-content {
             flex-grow: 1;
             padding: 30px;
+            box-sizing: border-box;
         }
 
         h1 {
@@ -93,8 +95,9 @@
     <div class="sidebar">
         <h2>メニュー</h2>
         <a href="{{ url_for('routes.dashboard') }}">ダッシュボード</a>
-        <a href="{{ url_for('auto_post.auto_post') }}">記事生成</a>
+        <a href="{{ url_for('routes.auto_post') }}">記事生成</a>
         <a href="{{ url_for('routes.admin_log', site_id=site_id) }}">投稿ログ</a>
+        <a href="{{ url_for('routes.prompt_templates') }}">テンプレート管理</a>
         <a href="{{ url_for('auth.logout') }}">ログアウト</a>
     </div>
 
