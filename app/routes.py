@@ -6,7 +6,8 @@ import pytz
 import threading
 from .wordpress_post import post_to_wordpress
 
-from .auto_post import generate_and_save_articles  # 🔸追加ポイント
+from .auto_post import generate_and_save_articles
+from .forms import AutoPostForm
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -18,60 +19,36 @@ def dashboard():
     user_articles = Article.query.join(Site).filter(Site.user_id == current_user.id).all()
     return render_template('dashboard.html', username=current_user.username, sites=user_sites, articles=user_articles)
 
-# ✅ Article系：編集
-@routes_bp.route('/edit_article/<int:post_id>', methods=['GET', 'POST'])
-@login_required
-def edit_article(post_id):
-    post = Article.query.get_or_404(post_id)
-    if request.method == 'POST':
-        post.title = request.form['title']
-        post.content = request.form['content']
-        db.session.commit()
-        flash('記事を更新しました。')
-        return redirect(url_for('routes.dashboard'))
-    return render_template('edit_article.html', article=post)
-
-# ✅ Article系：削除
-@routes_bp.route('/delete_article/<int:post_id>', methods=['GET'])
-@login_required
-def delete_article(post_id):
-    post = Article.query.get_or_404(post_id)
-    db.session.delete(post)
-    db.session.commit()
-    flash('記事を削除しました。')
-    return redirect(url_for('routes.dashboard'))
-
-# ✅ Article系：プレビュー
-@routes_bp.route('/preview_article/<int:post_id>')
-@login_required
-def preview_article(post_id):
-    post = Article.query.get_or_404(post_id)
-    return render_template('preview_article.html', article=post)
-
-
-# ✅ 全記事削除
-@routes_bp.route('/delete_all_posts/<int:site_id>', methods=['POST'])
-@login_required
-def delete_all_posts(site_id):
-    posts = Article.query.filter_by(site_id=site_id).all()
-    for post in posts:
-        db.session.delete(post)
-    db.session.commit()
-    flash('すべての記事を削除しました。')
-    return redirect(url_for('routes.dashboard'))
-
-# ✅ 自動投稿ページ
+# ✅ 自動投稿ページ（修正済み）
 @routes_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
 def auto_post():
+    form = AutoPostForm()
     sites = Site.query.filter_by(user_id=current_user.id).all()
     templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
+    form.site_id.choices = [(site.id, site.site_url) for site in sites]
+    form.template_id.choices = [(tpl.id, tpl.genre) for tpl in templates]
 
-    if request.method == 'POST':
-        site_id = int(request.form['site_id'])
-        keywords = request.form['keywords'].strip().splitlines()
-        title_prompt = request.form['title_prompt']
-        body_prompt = request.form['body_prompt']
+    if form.validate_on_submit():
+        keywords = form.keywords.data.strip().splitlines()
+        site_id = form.site_id.data
+        template_id = form.template_id.data
+
+        selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
+        if not selected_template:
+            flash("テンプレートが見つかりません")
+            return redirect(url_for('routes.auto_post'))
+
+        title_prompt = selected_template.title_prompt
+        body_prompt = selected_template.body_prompt
+
+        control = GenerationControl.query.filter_by(user_id=current_user.id).first()
+        if not control:
+            control = GenerationControl(user_id=current_user.id, stop_flag=False)
+            db.session.add(control)
+        else:
+            control.stop_flag = False
+        db.session.commit()
 
         app_instance = current_app._get_current_object()
         thread = threading.Thread(
@@ -80,11 +57,12 @@ def auto_post():
         )
         thread.start()
 
-        flash("記事生成を開始しました。生成状況はログで確認してください。")
+        flash("記事生成を開始しました。ログで確認できます。")
         return redirect(url_for('routes.admin_log', site_id=site_id))
 
-    return render_template('auto_post.html', sites=sites, prompt_templates=templates)
+    return render_template('auto_post.html', form=form, sites=sites, prompt_templates=templates)
 
+# ✅ その他のルートはそのまま（以下省略せず再掲）
 # ✅ 投稿ログ
 @routes_bp.route('/admin/log/<int:site_id>')
 @login_required
@@ -99,7 +77,46 @@ def admin_log(site_id):
     jst = pytz.timezone("Asia/Tokyo")
     return render_template('admin_log.html', posts=posts, jst=jst, site_id=site_id, filter_status=filter_status)
 
-# ✅ テンプレート登録/一覧
+# ✅ Article系：編集・削除・プレビュー
+@routes_bp.route('/edit_article/<int:post_id>', methods=['GET', 'POST'])
+@login_required
+def edit_article(post_id):
+    post = Article.query.get_or_404(post_id)
+    if request.method == 'POST':
+        post.title = request.form['title']
+        post.content = request.form['content']
+        db.session.commit()
+        flash('記事を更新しました。')
+        return redirect(url_for('routes.dashboard'))
+    return render_template('edit_article.html', article=post)
+
+@routes_bp.route('/delete_article/<int:post_id>', methods=['GET'])
+@login_required
+def delete_article(post_id):
+    post = Article.query.get_or_404(post_id)
+    db.session.delete(post)
+    db.session.commit()
+    flash('記事を削除しました。')
+    return redirect(url_for('routes.dashboard'))
+
+@routes_bp.route('/preview_article/<int:post_id>')
+@login_required
+def preview_article(post_id):
+    post = Article.query.get_or_404(post_id)
+    return render_template('preview_article.html', article=post)
+
+# ✅ 全記事削除
+@routes_bp.route('/delete_all_posts/<int:site_id>', methods=['POST'])
+@login_required
+def delete_all_posts(site_id):
+    posts = Article.query.filter_by(site_id=site_id).all()
+    for post in posts:
+        db.session.delete(post)
+    db.session.commit()
+    flash('すべての記事を削除しました。')
+    return redirect(url_for('routes.dashboard'))
+
+# ✅ テンプレート登録
 @routes_bp.route('/prompt-templates', methods=['GET', 'POST'])
 @login_required
 def prompt_templates():
@@ -121,7 +138,6 @@ def prompt_templates():
     templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
     return render_template('prompt_templates.html', prompt_templates=templates)
 
-# ✅ テンプレート削除
 @routes_bp.route('/prompt-templates/delete/<int:template_id>', methods=['POST'])
 @login_required
 def delete_prompt_template(template_id):
@@ -162,7 +178,7 @@ def add_site():
 
     return render_template('add_site.html')
 
-# ✅ ScheduledPost：プレビュー
+# ✅ ScheduledPost：プレビュー・編集・削除・即時投稿
 @routes_bp.route('/preview_post/<int:post_id>')
 @login_required
 def preview_scheduled_post(post_id):
@@ -172,7 +188,6 @@ def preview_scheduled_post(post_id):
         return redirect(url_for('routes.dashboard'))
     return render_template('preview_article.html', article=post)
 
-# ✅ ScheduledPost：編集
 @routes_bp.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
 @login_required
 def edit_scheduled_post(post_id):
@@ -193,7 +208,6 @@ def edit_scheduled_post(post_id):
 
     return render_template('edit_article.html', post=post)
 
-# ✅ ScheduledPost：削除
 @routes_bp.route('/delete_post/<int:post_id>')
 @login_required
 def delete_scheduled_post(post_id):
@@ -207,7 +221,6 @@ def delete_scheduled_post(post_id):
     flash('記事を削除しました')
     return redirect(url_for('routes.admin_log', site_id=post.site_id))
 
-# ✅ ScheduledPost：即時投稿
 @routes_bp.route('/publish_now/<int:post_id>')
 @login_required
 def publish_scheduled_now(post_id):
@@ -232,6 +245,7 @@ def publish_scheduled_now(post_id):
 
     return redirect(url_for('routes.admin_log', site_id=post.site_id))
 
+# ✅ 記事生成停止
 @routes_bp.route('/stop_generation', methods=['POST'])
 @login_required
 def stop_generation():

@@ -9,21 +9,30 @@
     </h1>
 
     <form method="POST" style="display: flex; flex-direction: column; gap: 20px;">
-        {{ form.hidden_tag() }}  {# ✅ CSRF対応のため必要 #}
+        {{ form.hidden_tag() }}  {# ✅ CSRF対策（Flask-WTF） #}
 
         <div>
             <label for="site_id" style="font-weight: bold;">投稿先サイトを選択：</label><br>
             {{ form.site_id(class="form-control", style="width: 100%; padding: 8px;") }}
+            {% if form.site_id.errors %}
+                <div style="color: red;">{{ form.site_id.errors[0] }}</div>
+            {% endif %}
         </div>
 
         <div>
             <label for="keywords" style="font-weight: bold;">キーワード一覧（最大40個・1行ずつ）:</label><br>
-            {{ form.keywords(rows=6, class="form-control", style="width: 100%; padding: 10px;") }}
+            {{ form.keywords(rows=6, class="form-control", style="width: 100%; padding: 10px;", placeholder="例：温泉旅行\n家族連れ\n格安ホテル") }}
+            {% if form.keywords.errors %}
+                <div style="color: red;">{{ form.keywords.errors[0] }}</div>
+            {% endif %}
         </div>
 
         <div>
             <label for="template_id" style="font-weight: bold;">テンプレートを選択：</label><br>
             {{ form.template_id(class="form-control", style="width: 100%; padding: 8px;") }}
+            {% if form.template_id.errors %}
+                <div style="color: red;">{{ form.template_id.errors[0] }}</div>
+            {% endif %}
         </div>
 
         <div style="text-align: center; margin-top: 10px;">
