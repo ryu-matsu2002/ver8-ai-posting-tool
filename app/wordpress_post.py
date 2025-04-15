@@ -1,5 +1,3 @@
-# 📄 app/wordpress_post.py
-
 import requests
 import json
 import base64
@@ -7,7 +5,7 @@ import base64
 def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
     """Pixabay画像URLをWordPressにアップロードし、画像IDを返す"""
     try:
-        image_data = requests.get(image_url).content
+        image_data = requests.get(image_url, headers={"User-Agent": "Mozilla/5.0"}).content
         filename = image_url.split("/")[-1]
 
         token = base64.b64encode(f"{wp_username}:{wp_app_password}".encode()).decode('utf-8')
@@ -15,6 +13,7 @@ def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
             'Content-Disposition': f'attachment; filename={filename}',
             'Content-Type': 'image/jpeg',
             'Authorization': f'Basic {token}',
+            'User-Agent': 'Mozilla/5.0'  # ← 追加
         }
 
         response = requests.post(
@@ -38,15 +37,14 @@ def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, im
     token = base64.b64encode(f"{wp_username}:{wp_app_password}".encode()).decode('utf-8')
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Basic {token}'
+        'Authorization': f'Basic {token}',
+        'User-Agent': 'Mozilla/5.0'  # ← 追加
     }
 
     # アイキャッチ画像のアップロード
     featured_image_id = None
     if images:
         featured_image_id = upload_featured_image(site_url, wp_username, wp_app_password, images[0])
-        # 画像は本文には入れない方針に変更してもOK（403対策）
-        # content = f'<img src="{images[0]}" style="max-width:100%;">\n' + content
 
     # 投稿データ
     data = {

@@ -1,7 +1,15 @@
-# 📄 app/image_search.py
-
 import requests
 from flask import current_app
+import re
+
+def clean_query(query):
+    """
+    Pixabay用クエリの調整：引用符などPixabayが受け入れない文字を削除
+    """
+    query = query.strip().lower()
+    query = re.sub(r'[\"\'\(\)\[\]\{\}:;]', '', query)  # 不要な記号を除去
+    query = query.replace('　', ' ')  # 全角スペースを半角に
+    return query
 
 def search_images(query, num_images=2):
     """
@@ -14,13 +22,15 @@ def search_images(query, num_images=2):
         print("❌ Pixabay APIキーが設定されていません")
         return []
 
+    clean_kw = clean_query(query)
+
     params = {
         'key': PIXABAY_API_KEY,
-        'q': query,
+        'q': clean_kw,
         'image_type': 'photo',
         'per_page': num_images,
         'safesearch': 'true',
-        'lang': 'en',  # 英語キーワード前提
+        'lang': 'en',
     }
 
     try:
@@ -30,7 +40,7 @@ def search_images(query, num_images=2):
 
         image_urls = [hit['webformatURL'] for hit in data.get('hits', [])]
         if not image_urls:
-            print(f"⚠️ 画像が見つかりませんでした: {query}")
+            print(f"⚠️ 画像が見つかりませんでした: {clean_kw}")
 
         return image_urls
 
