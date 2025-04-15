@@ -1,19 +1,22 @@
+# 📄 app/image_search.py
+
 import requests
 from flask import current_app
 import re
 
 def clean_query(query):
     """
-    Pixabay用クエリの調整：引用符などPixabayが受け入れない文字を削除
+    Pixabay用クエリの調整：Pixabayが受け付けない文字を除去し、検索精度を向上
     """
     query = query.strip().lower()
-    query = re.sub(r'[\"\'\(\)\[\]\{\}:;]', '', query)  # 不要な記号を除去
-    query = query.replace('　', ' ')  # 全角スペースを半角に
+    query = re.sub(r'[\"\'\(\)\[\]\{\}:;]', '', query)  # 記号除去
+    query = re.sub(r'\s+', ' ', query)  # 複数スペースを1つに
+    query = query.replace('　', ' ')  # 全角スペース→半角
     return query
 
 def search_images(query, num_images=2):
     """
-    英語キーワードでPixabayから画像を検索し、画像URLを返す関数
+    与えられたクエリ（英語）をもとにPixabayから画像を検索し、画像URLを返す
     """
     PIXABAY_API_KEY = current_app.config.get('PIXABAY_API_KEY')
     PIXABAY_API_URL = "https://pixabay.com/api/"
@@ -41,9 +44,11 @@ def search_images(query, num_images=2):
         image_urls = [hit['webformatURL'] for hit in data.get('hits', [])]
         if not image_urls:
             print(f"⚠️ 画像が見つかりませんでした: {clean_kw}")
+        else:
+            print(f"✅ Pixabay画像取得成功（{clean_kw}）: {len(image_urls)}件")
 
         return image_urls
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Pixabay APIリクエストに失敗しました: {e}")
+        print(f"❌ Pixabay APIリクエストに失敗しました: {e}（キーワード: {clean_kw}）")
         return []

@@ -39,13 +39,19 @@ def is_generation_stopped(user_id):
     control = GenerationControl.query.filter_by(user_id=user_id).first()
     return control and control.stop_flag
 
-def generate_image_search_keyword(keyword):
-    prompt = f"以下の日本語キーワードを画像検索用の英語キーワードに1〜2語で変換してください：{keyword}"
+def generate_image_keyword_from_body(content):
+    prompt = f"""
+以下は記事本文の内容です。
+この内容に最も合ったPixabay画像を探すための英語検索キーワード（3語以内）を1つ出力してください。
+
+本文:
+{content[:800]}
+"""
     try:
         response = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant who generates concise English search keywords."},
+                {"role": "system", "content": "You are a helpful assistant that summarizes content into image search keywords."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.5,
@@ -53,7 +59,7 @@ def generate_image_search_keyword(keyword):
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        print("❌ ChatGPTによる画像検索キーワード生成失敗:", e)
+        print("❌ ChatGPTによる画像キーワード生成失敗:", e)
         return "nature"
 
 def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id, user_id):
@@ -127,7 +133,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     content = body_res.choices[0].message.content.strip()
                     content = enhance_h2_tags(content)
 
-                    image_kw = generate_image_search_keyword(keyword)
+                    image_kw = generate_image_keyword_from_body(content)
                     image_urls = search_images(image_kw, num_images=1)
                     featured_image = image_urls[0] if image_urls else None
 
