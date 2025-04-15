@@ -36,7 +36,7 @@ body_base_prompt = """🔧執筆ルール（必ず守ること）
 2. 読者は「あなた」と呼ぶこと（「皆さん」禁止）
 3. 親友に語りかけるように、ただし敬語で
 4. 改行は段落の終わりのみ、1〜3行で段落、段落間は2行空ける
-5. 記事は2500〜3500文字程度（**最低でも2000文字以上にすること**）
+5. 記事は2500〜3500文字程度
 6. 適切な見出し（hタグ）を付けて構成する"""
 
 def insert_images_after_headings_random(content, image_urls):
@@ -77,24 +77,25 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst)
-        base_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # ✅ 翌日以降のみを対象とするスケジュール基準日
+        base_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         schedule_times = []
         used_times = set()
 
+        # ✅ 1日1～5件のスケジュールを10時〜21時にランダムに生成
         for day in range(30):
             base = base_start + timedelta(days=day)
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
-            daily_used_hours = set()
+            daily_used_times = set()
             for _ in range(num_posts):
-                for _ in range(20):
+                for _ in range(20):  # 最大20回まで試行
                     h = random.randint(10, 21)
                     m = random.randint(0, 59)
-                    if h in daily_used_hours:
-                        continue
-                    daily_used_hours.add(h)
                     post_time = base.replace(hour=h, minute=m)
-                    if post_time not in used_times:
+                    if post_time not in used_times and (h, m) not in daily_used_times:
                         used_times.add(post_time)
+                        daily_used_times.add((h, m))
                         schedule_times.append(post_time.astimezone(pytz.utc))
                         break
 
@@ -143,11 +144,9 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                             {"role": "user", "content": body_input}
                         ],
                         temperature=0.7,
-                        max_tokens=4096  # 🔧 最大トークン数拡張
+                        max_tokens=4096
                     )
                     content = body_res.choices[0].message.content.strip()
-
-                    # 🔧 len(content) によるスキップ判定は削除済み
 
                     en_keyword = GoogleTranslator(source='ja', target='en').translate(keyword)
                     image_urls = search_images(en_keyword, num_images=3)
