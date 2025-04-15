@@ -7,7 +7,7 @@ import threading
 from .wordpress_post import post_to_wordpress
 
 from .auto_post import generate_and_save_articles
-from .forms import AutoPostForm, AddSiteForm
+from .forms import AutoPostForm, AddSiteForm, PromptTemplateForm
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -19,7 +19,7 @@ def dashboard():
     user_articles = Article.query.join(Site).filter(Site.user_id == current_user.id).all()
     return render_template('dashboard.html', username=current_user.username, sites=user_sites, articles=user_articles)
 
-# ✅ 自動投稿ページ（修正済み）
+# ✅ 自動投稿ページ
 @routes_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
 def auto_post():
@@ -62,7 +62,6 @@ def auto_post():
 
     return render_template('auto_post.html', form=form, sites=sites, prompt_templates=templates)
 
-# ✅ その他のルートはそのまま（以下省略せず再掲）
 # ✅ 投稿ログ
 @routes_bp.route('/admin/log/<int:site_id>')
 @login_required
@@ -116,24 +115,21 @@ def delete_all_posts(site_id):
     flash('すべての記事を削除しました。')
     return redirect(url_for('routes.dashboard'))
 
+# ✅ テンプレート管理
 @routes_bp.route('/prompt-templates', methods=['GET', 'POST'])
 @login_required
 def prompt_templates():
-    from .forms import PromptTemplateForm
-
     form = PromptTemplateForm()
     if form.validate_on_submit():
         genre = form.genre.data.strip()
         title_prompt = form.title_prompt.data.strip()
         body_prompt = form.body_prompt.data.strip()
 
-        # ✅ {{keyword}} が含まれていなければ冒頭に強制追加
+        # ✅ 必ず {{keyword}} / {{title}} を先頭に補完して保存
         if "{{keyword}}" not in title_prompt:
-            title_prompt = "以下のキーワードに基づいてタイトルを生成してください：{{keyword}}\n\n" + title_prompt
-
-        # ✅ {{title}} が含まれていなければ冒頭に強制追加
+            title_prompt = "{{keyword}}\n\n" + title_prompt
         if "{{title}}" not in body_prompt:
-            body_prompt = "以下のタイトル（{{title}}）に対して記事本文を生成してください。\n\n" + body_prompt
+            body_prompt = "{{title}}\n\n" + body_prompt
 
         template = PromptTemplate(
             genre=genre,

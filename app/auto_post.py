@@ -22,14 +22,13 @@ load_dotenv()
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ⬇ 見出しの直下にランダムで最大2枚まで画像挿入
 def insert_images_after_headings_random(content, image_urls):
     headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
     if not headings or not image_urls:
         return content
 
     insert_positions = random.sample(headings, min(2, len(headings), len(image_urls)))
-    insert_positions.sort(key=lambda x: x.start())  # 順序保持
+    insert_positions.sort(key=lambda x: x.start())
     new_content = content
     offset = 0
 
@@ -93,14 +92,12 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
                     # タイトルプロンプト置換と安全チェック
                     title_full_prompt = title_prompt.replace("{{keyword}}", keyword.strip())
-                    if re.search(r"\{\{.*?\}\}", title_full_prompt):
+                    if re.search(r"\{\{.*?\}\}", title_full_prompt) or keyword.strip() not in title_full_prompt:
                         print("❌ タイトルプロンプトに置換漏れあり → スキップ")
                         continue
-                    # ✅ ここでプロンプトの中身をログ出力
                     print("📤 GPTへのタイトルプロンプト送信内容：")
                     print(title_full_prompt)
 
-                    # タイトル生成
                     title_response = client.chat.completions.create(
                         model="gpt-4-turbo",
                         messages=[
@@ -116,13 +113,10 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                         continue
                     print("✅ タイトル生成:", title)
 
-                    # 本文プロンプト置換と安全チェック
                     body_full_prompt = body_prompt.replace("{{title}}", title.strip())
-                    if re.search(r"\{\{.*?\}\}", body_full_prompt):
+                    if re.search(r"\{\{.*?\}\}", body_full_prompt) or title.strip() not in body_full_prompt:
                         print("❌ 本文プロンプトに置換漏れあり → スキップ")
                         continue
-
-                    # ✅ ここで本文プロンプトもログ出力
                     print("📤 GPTへの本文プロンプト送信内容：")
                     print(body_full_prompt)
 
