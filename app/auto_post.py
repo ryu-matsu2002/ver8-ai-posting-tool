@@ -1,5 +1,3 @@
-# 📄 app/auto_post.py
-
 import os
 import threading
 import time
@@ -13,8 +11,6 @@ from flask import Blueprint, current_app, render_template, redirect, url_for
 from flask_login import current_user, login_required
 from dotenv import load_dotenv
 from openai import OpenAI
-from deep_translator import GoogleTranslator
-
 from .models import db, Site, ScheduledPost, PromptTemplate, GenerationControl
 from .image_search import search_images
 from .forms import AutoPostForm
@@ -23,7 +19,6 @@ load_dotenv()
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ユーザー入力がメイン、ベースは補助的なガイド
 title_base_prompt = """以下のキーワードに対して質問形式のSEOタイトルを1つ考えてください：
 キーワード：「{{keyword}}」"""
 
@@ -44,12 +39,22 @@ def is_generation_stopped(user_id):
     control = GenerationControl.query.filter_by(user_id=user_id).first()
     return control and control.stop_flag
 
-def shorten_for_image_search(text):
-    # 英語に翻訳して3単語以内に制限
-    translated = GoogleTranslator(source='ja', target='en').translate(text)
-    words = translated.split()
-    short_text = ' '.join(words[:3])  # 最大3単語
-    return short_text
+def generate_image_search_keyword(keyword):
+    prompt = f"以下の日本語キーワードを画像検索用の英語キーワードに1〜2語で変換してください：{keyword}"
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant who generates concise English search keywords."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5,
+            max_tokens=20
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print("❌ ChatGPTによる画像検索キーワード生成失敗:", e)
+        return "nature"
 
 def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id, user_id):
     with app.app_context():
@@ -65,22 +70,18 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         now = datetime.now(jst)
         base_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # 30日分の投稿スケジュール（10時～21時、30分以上間隔）
         schedule_times = []
-        used_times = set()
         for day in range(30):
             base = base_start + timedelta(days=day)
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
-            day_schedule = []
-            attempts = 0
-            while len(day_schedule) < num_posts and attempts < 100:
+            times = []
+            while len(times) < num_posts:
                 h = random.randint(10, 21)
                 m = random.randint(0, 59)
                 candidate = base.replace(hour=h, minute=m)
-                if all(abs((candidate - t).total_seconds()) >= 1800 for t in day_schedule):
-                    day_schedule.append(candidate)
-                attempts += 1
-            schedule_times.extend([dt.astimezone(pytz.utc) for dt in sorted(day_schedule)])
+                if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):
+                    times.append(candidate)
+            schedule_times.extend(sorted([t.astimezone(pytz.utc) for t in times]))
 
         scheduled_index = 0
         for keyword in keywords:
@@ -92,7 +93,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 try:
                     print(f"\n▶ キーワード: {keyword}（{n+1}/{article_count}）")
 
-                    # タイトル生成プロンプト
                     title_input = title_base_prompt.replace("{{keyword}}", keyword.strip())
                     if title_prompt:
                         title_input += f"\n\n{title_prompt.strip()}"
@@ -110,7 +110,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     title = clean_title(raw_title)
                     print("✅ タイトル生成:", title)
 
-                    # 本文生成プロンプト
                     body_input = ""
                     if body_prompt:
                         body_input += body_prompt.strip() + "\n\n"
@@ -128,9 +127,8 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     content = body_res.choices[0].message.content.strip()
                     content = enhance_h2_tags(content)
 
-                    # 画像検索用に翻訳＋短縮
-                    short_en_kw = shorten_for_image_search(keyword)
-                    image_urls = search_images(short_en_kw, num_images=1)
+                    image_kw = generate_image_search_keyword(keyword)
+                    image_urls = search_images(image_kw, num_images=1)
                     featured_image = image_urls[0] if image_urls else None
 
                     scheduled_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
