@@ -120,12 +120,13 @@ def delete_all_posts(site_id):
 @login_required
 def prompt_templates():
     form = PromptTemplateForm()
+
     if form.validate_on_submit():
         genre = form.genre.data.strip()
         title_prompt = form.title_prompt.data.strip()
         body_prompt = form.body_prompt.data.strip()
 
-        # ✅ 必ず {{keyword}} / {{title}} を先頭に補完して保存
+        # ✅ 自動的に {{keyword}} / {{title}} を補完
         if "{{keyword}}" not in title_prompt:
             title_prompt = "{{keyword}}\n\n" + title_prompt
         if "{{title}}" not in body_prompt:
@@ -144,7 +145,6 @@ def prompt_templates():
 
     templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
     return render_template('prompt_templates.html', form=form, prompt_templates=templates)
-
 @routes_bp.route('/prompt-templates/delete/<int:template_id>', methods=['POST'])
 @login_required
 def delete_prompt_template(template_id):
