@@ -16,11 +16,12 @@ from openai import OpenAI
 
 from .models import db, Site, ScheduledPost, PromptTemplate, GenerationControl
 from .image_search import search_images
-from .forms import AutoPostForm  # ✅ CSRF対応フォーム
+from .forms import AutoPostForm
 
 load_dotenv()
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 def insert_images_after_headings(content, image_urls):
     headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
@@ -35,9 +36,11 @@ def insert_images_after_headings(content, image_urls):
         offset += len(img_tags[i]) + 2
     return new_content
 
+
 def is_generation_stopped(user_id):
     control = GenerationControl.query.filter_by(user_id=user_id).first()
     return control and control.stop_flag
+
 
 def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id, user_id):
     with app.app_context():
@@ -55,16 +58,21 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
             return
 
         jst = pytz.timezone("Asia/Tokyo")
-        now = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
+        now = datetime.now(jst)
+        base_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if now > base_start:
+            base_start = now  # 現在時刻より過去にならないように調整
 
         schedule_times = []
         for day in range(30):
-            base = now + timedelta(days=day)
+            base = base_start + timedelta(days=day)
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
             hours = sorted(random.sample(range(10, 22), k=min(num_posts, 11)))
             for h in hours:
                 minute = random.randint(0, 59)
                 post_time = base.replace(hour=h, minute=minute)
+                if post_time < now:
+                    post_time = now + timedelta(minutes=5)  # 絶対に未来にする
                 schedule_times.append(post_time.astimezone(pytz.utc))
 
         for i, keyword in enumerate(keywords[:120]):
@@ -78,7 +86,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 if "{{" in title_full_prompt or "}}" in title_full_prompt:
                     print("❌ タイトルプロンプト置換失敗 → スキップ")
                     continue
-                print("🧠 タイトル用プロンプト:", title_full_prompt)
 
                 title_response = client.chat.completions.create(
                     model="gpt-4-turbo",
@@ -99,7 +106,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 if "{{" in body_full_prompt or "}}" in body_full_prompt:
                     print("❌ 本文プロンプト置換失敗 → スキップ")
                     continue
-                print("🧠 本文用プロンプト:", body_full_prompt[:200], "...")
 
                 content_response = client.chat.completions.create(
                     model="gpt-4-turbo",
@@ -120,7 +126,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 if len(image_urls) > 1:
                     content = insert_images_after_headings(content, image_urls[1:3])
 
-                scheduled_time = schedule_times[i] if i < len(schedule_times) else datetime.utcnow() + timedelta(days=1)
+                scheduled_time = schedule_times[i] if i < len(schedule_times) else now + timedelta(days=1)
 
                 post = ScheduledPost(
                     title=title,
@@ -145,6 +151,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 print(f"❌ 例外発生（{keyword}）: {e}")
                 traceback.print_exc()
                 db.session.rollback()
+
 
 @auto_post_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required

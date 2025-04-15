@@ -5,9 +5,9 @@ services:
     name: ai-posting-tool
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app
+    startCommand: gunicorn run:app  # ✅ run.py を使うように修正
     envVars:
       - key: FLASK_ENV
         value: production
       - key: DATABASE_URL
-        value: <your_postgresql_url>
+        value: postgresql://ver8_ai_posting_db_m8ta_user:vaoyFQMSZzjm3wulFIlZXo77qwkgZibg@dpg-cvti4pbuibrs73dktvl0-a.singapore-postgres.render.com/ver8_ai_posting_db_m8ta  # ✅ 正しいURLに差し替え
