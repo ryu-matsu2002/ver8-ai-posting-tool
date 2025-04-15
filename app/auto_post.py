@@ -1,4 +1,4 @@
-# 📄 app/auto_post.py
+# 📄 app/auto_post.py（前半）
 
 import os
 import threading
@@ -22,22 +22,31 @@ load_dotenv()
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def insert_images_after_headings(content, image_urls):
+# ⬇ 見出しのすぐ下にランダムで2枚まで画像を挿入
+def insert_images_after_headings_random(content, image_urls):
     headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
-    img_tags = [f'<img src="{url}" style="max-width:100%; margin-top:10px;">' for url in image_urls[:2]]
-    if not headings:
-        return content + "\n\n" + "\n".join(img_tags)
+    if not headings or not image_urls:
+        return content
+
+    selected_positions = random.sample(headings, min(2, len(headings), len(image_urls)))
     new_content = content
     offset = 0
-    for i in range(min(2, len(headings), len(img_tags))):
-        end = headings[i].end() + offset
-        new_content = new_content[:end] + "\n\n" + img_tags[i] + new_content[end:]
-        offset += len(img_tags[i]) + 2
+
+    for i, heading in enumerate(headings):
+        if heading in selected_positions:
+            img_tag = f'<img src="{image_urls.pop(0)}" style="max-width:100%; margin-top:10px;">'
+            insert_pos = heading.end() + offset
+            new_content = new_content[:insert_pos] + "\n\n" + img_tag + new_content[insert_pos:]
+            offset += len(img_tag) + 2
+            if not image_urls:
+                break
+
     return new_content
 
 def is_generation_stopped(user_id):
     control = GenerationControl.query.filter_by(user_id=user_id).first()
     return control and control.stop_flag
+# 📄 app/auto_post.py（後半）
 
 def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id, user_id):
     with app.app_context():
@@ -56,7 +65,9 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst)
-        base_start = max(now, now.replace(hour=0, minute=0, second=0, microsecond=0))
+        base_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if now > base_start:
+            base_start = now
 
         schedule_times = []
         for day in range(30):
@@ -122,7 +133,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     image_urls = search_images(keyword, num_images=3)
                     featured_image = image_urls[0] if image_urls else None
                     if len(image_urls) > 1:
-                        content = insert_images_after_headings(content, image_urls[1:3])
+                        content = insert_images_after_headings_random(content, image_urls[1:3])
 
                     scheduled_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
                     scheduled_index += 1
