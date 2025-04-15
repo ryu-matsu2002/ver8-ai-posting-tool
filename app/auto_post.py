@@ -36,7 +36,7 @@ body_base_prompt = """🔧執筆ルール（必ず守ること）
 2. 読者は「あなた」と呼ぶこと（「皆さん」禁止）
 3. 親友に語りかけるように、ただし敬語で
 4. 改行は段落の終わりのみ、1〜3行で段落、段落間は2行空ける
-5. 記事は2500〜3500文字程度
+5. 記事は2500〜3500文字程度（**最低でも2000文字以上にすること**）
 6. 適切な見出し（hタグ）を付けて構成する
 次のタイトルに基づいて本文を生成してください：
 タイトル：「{{title}}」"""
@@ -61,7 +61,7 @@ def enhance_h2_tags(content):
     return re.sub(r'(<h2.*?>)', r'\1<span style="font-size: 1.5em; font-weight: bold;">', content).replace("</h2>", "</span></h2>")
 
 def clean_title(title):
-    return re.sub(r'^[0-9\.\-ー①-⑩]+[\.\s）)]*', '', title).strip()
+    return re.sub(r'^[0-9\.\-ー①-⑩]+[\.\s）)]*|[「」\"]', '', title).strip()
 
 def is_generation_stopped(user_id):
     control = GenerationControl.query.filter_by(user_id=user_id).first()
@@ -86,10 +86,14 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         for day in range(30):
             base = base_start + timedelta(days=day)
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
+            daily_used_hours = set()
             for _ in range(num_posts):
-                for _ in range(20):  # 重複しない時間を試行
+                for _ in range(20):
                     h = random.randint(10, 21)
                     m = random.randint(0, 59)
+                    if h in daily_used_hours:
+                        continue
+                    daily_used_hours.add(h)
                     post_time = base.replace(hour=h, minute=m)
                     if post_time not in used_times:
                         used_times.add(post_time)
@@ -106,7 +110,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 try:
                     print(f"\n▶ キーワード: {keyword}（{n+1}/{article_count}）")
 
-                    # タイトルプロンプト作成
                     title_input = title_base_prompt.replace("{{keyword}}", keyword.strip())
                     if title_prompt:
                         title_input += f"\n\n#補足:\n{title_prompt.strip()}"
@@ -127,7 +130,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     title = clean_title(raw_title)
                     print("✅ タイトル生成:", title)
 
-                    # 本文プロンプト作成
                     body_input = body_base_prompt.replace("{{title}}", title)
                     if body_prompt:
                         body_input += f"\n\n#補足:\n{body_prompt.strip()}"
@@ -142,21 +144,18 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                             {"role": "user", "content": body_input}
                         ],
                         temperature=0.7,
-                        max_tokens=2000
+                        max_tokens=3000  # 🔧 2000 → 3000 に増量
                     )
                     content = body_res.choices[0].message.content.strip()
                     if len(content) < 2000:
                         print("❌ 本文が短すぎる → スキップ")
                         continue
 
-                    # 🔍 英訳してPixabay検索
                     en_keyword = GoogleTranslator(source='ja', target='en').translate(keyword)
                     image_urls = search_images(en_keyword, num_images=3)
                     featured_image = image_urls[0] if image_urls else None
                     if len(image_urls) > 1:
                         content = insert_images_after_headings_random(content, image_urls[1:3])
-
-                    # 💡 h2タグ装飾
                     content = enhance_h2_tags(content)
 
                     scheduled_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
