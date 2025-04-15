@@ -128,7 +128,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     title = clean_title(raw_title)
                     print("✅ タイトル生成:", title)
 
-                    body_input = body_base_prompt + "\n\n"  # 補助的ルール
+                    body_input = body_base_prompt + "\n\n"
                     if body_prompt:
                         body_input += f"{body_prompt.strip()}\n\n"
                     body_input += f"タイトル：「{title}」に基づいて本文を生成してください。"
@@ -143,12 +143,11 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                             {"role": "user", "content": body_input}
                         ],
                         temperature=0.7,
-                        max_tokens=3000  # 🔧 増量済み
+                        max_tokens=4096  # 🔧 最大トークン数拡張
                     )
                     content = body_res.choices[0].message.content.strip()
-                    if len(content) < 2000:
-                        print("❌ 本文が短すぎる → スキップ")
-                        continue
+
+                    # 🔧 len(content) によるスキップ判定は削除済み
 
                     en_keyword = GoogleTranslator(source='ja', target='en').translate(keyword)
                     image_urls = search_images(en_keyword, num_images=3)
