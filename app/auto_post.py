@@ -37,9 +37,7 @@ body_base_prompt = """🔧執筆ルール（必ず守ること）
 3. 親友に語りかけるように、ただし敬語で
 4. 改行は段落の終わりのみ、1〜3行で段落、段落間は2行空ける
 5. 記事は2500〜3500文字程度（**最低でも2000文字以上にすること**）
-6. 適切な見出し（hタグ）を付けて構成する
-次のタイトルに基づいて本文を生成してください：
-タイトル：「{{title}}」"""
+6. 適切な見出し（hタグ）を付けて構成する"""
 
 def insert_images_after_headings_random(content, image_urls):
     headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
@@ -112,7 +110,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
                     title_input = title_base_prompt.replace("{{keyword}}", keyword.strip())
                     if title_prompt:
-                        title_input += f"\n\n#補足:\n{title_prompt.strip()}"
+                        title_input += f"\n\n{title_prompt.strip()}"
 
                     print("📤 タイトルプロンプト送信内容：")
                     print(title_input)
@@ -130,9 +128,10 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     title = clean_title(raw_title)
                     print("✅ タイトル生成:", title)
 
-                    body_input = body_base_prompt.replace("{{title}}", title)
+                    body_input = body_base_prompt + "\n\n"  # 補助的ルール
                     if body_prompt:
-                        body_input += f"\n\n#補足:\n{body_prompt.strip()}"
+                        body_input += f"{body_prompt.strip()}\n\n"
+                    body_input += f"タイトル：「{title}」に基づいて本文を生成してください。"
 
                     print("📤 本文プロンプト送信内容：")
                     print(body_input)
@@ -144,7 +143,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                             {"role": "user", "content": body_input}
                         ],
                         temperature=0.7,
-                        max_tokens=3000  # 🔧 2000 → 3000 に増量
+                        max_tokens=3000  # 🔧 増量済み
                     )
                     content = body_res.choices[0].message.content.strip()
                     if len(content) < 2000:
