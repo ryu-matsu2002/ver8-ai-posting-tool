@@ -9,7 +9,7 @@ import pytz
 import traceback
 import re
 
-from flask import Blueprint, request, current_app, render_template, redirect, url_for
+from flask import Blueprint, current_app, render_template, redirect, url_for
 from flask_login import current_user, login_required
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -23,37 +23,16 @@ load_dotenv()
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-title_base_prompt = """あなたはSEOとコンテンツマーケティングの専門家です。
-次のキーワードに基づいてWEBサイト用のQ&A形式の「記事タイトル」を1つ考えてください。
-キーワード：「{{keyword}}」
-条件：
-- キーワードの順番は変えない
-- 必ずそのままキーワードを使う
-- 文末は「？」にしてください"""
+# ユーザー入力がメイン、ベースは補助的なガイド
+title_base_prompt = """以下のキーワードに対して質問形式のSEOタイトルを1つ考えてください：
+キーワード：「{{keyword}}」"""
 
-body_base_prompt = """🔧執筆ルール（必ず守ること）
-1. 構成：問題提起 → 共感 → 解決策
-2. 読者は「あなた」と呼ぶこと（「皆さん」禁止）
-3. 親友に語りかけるように、ただし敬語で
-4. 改行は段落の終わりのみ、1〜3行で段落、段落間は2行空ける
-5. 記事は2500〜3500文字程度
-6. 適切な見出し（hタグ）を付けて構成する"""
-
-def insert_images_after_headings_random(content, image_urls):
-    headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
-    if not headings or not image_urls:
-        return content
-    insert_positions = random.sample(headings, min(2, len(headings), len(image_urls)))
-    insert_positions.sort(key=lambda x: x.start())
-    new_content = content
-    offset = 0
-    for heading in insert_positions:
-        img_url = image_urls.pop(0)
-        img_tag = f'<img src="{img_url}" style="max-width:100%; margin: 15px 0;">'
-        insert_at = heading.end() + offset
-        new_content = new_content[:insert_at] + "\n\n" + img_tag + new_content[insert_at:]
-        offset += len(img_tag) + 2
-    return new_content
+body_base_prompt = """🔧執筆ガイド（参考ルール）
+- 問題提起 → 共感 → 解決策
+- 読者は「あなた」呼び（皆さん禁止）
+- 敬語、親友に語るように
+- 段落内改行なし、段落間に2行空ける
+- 見出し（hタグ）で構成整理"""
 
 def enhance_h2_tags(content):
     return re.sub(r'(<h2.*?>)', r'\1<span style="font-size: 1.5em; font-weight: bold;">', content).replace("</h2>", "</span></h2>")
@@ -77,27 +56,24 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst)
-
-        # ✅ 翌日以降のみを対象とするスケジュール基準日
         base_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # ⏰ 30日分の投稿スケジュール（10時～21時、30分以上間隔）
         schedule_times = []
         used_times = set()
-
-        # ✅ 1日1～5件のスケジュールを10時〜21時にランダムに生成
         for day in range(30):
             base = base_start + timedelta(days=day)
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
-            daily_used_times = set()
-            for _ in range(num_posts):
-                for _ in range(20):  # 最大20回まで試行
-                    h = random.randint(10, 21)
-                    m = random.randint(0, 59)
-                    post_time = base.replace(hour=h, minute=m)
-                    if post_time not in used_times and (h, m) not in daily_used_times:
-                        used_times.add(post_time)
-                        daily_used_times.add((h, m))
-                        schedule_times.append(post_time.astimezone(pytz.utc))
-                        break
+            day_schedule = []
+            attempts = 0
+            while len(day_schedule) < num_posts and attempts < 100:
+                h = random.randint(10, 21)
+                m = random.randint(0, 59)
+                candidate = base.replace(hour=h, minute=m)
+                if all(abs((candidate - t).total_seconds()) >= 1800 for t in day_schedule):
+                    day_schedule.append(candidate)
+                attempts += 1
+            schedule_times.extend([dt.astimezone(pytz.utc) for dt in sorted(day_schedule)])
 
         scheduled_index = 0
         for keyword in keywords:
@@ -113,9 +89,6 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     if title_prompt:
                         title_input += f"\n\n{title_prompt.strip()}"
 
-                    print("📤 タイトルプロンプト送信内容：")
-                    print(title_input)
-
                     title_res = client.chat.completions.create(
                         model="gpt-4-turbo",
                         messages=[
@@ -129,13 +102,10 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     title = clean_title(raw_title)
                     print("✅ タイトル生成:", title)
 
-                    body_input = body_base_prompt + "\n\n"
+                    body_input = ""
                     if body_prompt:
-                        body_input += f"{body_prompt.strip()}\n\n"
-                    body_input += f"タイトル：「{title}」に基づいて本文を生成してください。"
-
-                    print("📤 本文プロンプト送信内容：")
-                    print(body_input)
+                        body_input += body_prompt.strip() + "\n\n"
+                    body_input += body_base_prompt + f"\n\nタイトル：「{title}」に基づいて本文を生成してください。"
 
                     body_res = client.chat.completions.create(
                         model="gpt-4-turbo",
@@ -147,13 +117,11 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                         max_tokens=4096
                     )
                     content = body_res.choices[0].message.content.strip()
+                    content = enhance_h2_tags(content)
 
                     en_keyword = GoogleTranslator(source='ja', target='en').translate(keyword)
-                    image_urls = search_images(en_keyword, num_images=3)
+                    image_urls = search_images(en_keyword, num_images=1)
                     featured_image = image_urls[0] if image_urls else None
-                    if len(image_urls) > 1:
-                        content = insert_images_after_headings_random(content, image_urls[1:3])
-                    content = enhance_h2_tags(content)
 
                     scheduled_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
                     scheduled_index += 1
