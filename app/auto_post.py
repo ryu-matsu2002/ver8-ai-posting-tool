@@ -44,6 +44,13 @@ def is_generation_stopped(user_id):
     control = GenerationControl.query.filter_by(user_id=user_id).first()
     return control and control.stop_flag
 
+def shorten_for_image_search(text):
+    # 英語に翻訳して3単語以内に制限
+    translated = GoogleTranslator(source='ja', target='en').translate(text)
+    words = translated.split()
+    short_text = ' '.join(words[:3])  # 最大3単語
+    return short_text
+
 def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id, user_id):
     with app.app_context():
         site = Site.query.filter_by(id=site_id, user_id=user_id).first()
@@ -58,7 +65,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         now = datetime.now(jst)
         base_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # ⏰ 30日分の投稿スケジュール（10時～21時、30分以上間隔）
+        # 30日分の投稿スケジュール（10時～21時、30分以上間隔）
         schedule_times = []
         used_times = set()
         for day in range(30):
@@ -85,6 +92,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 try:
                     print(f"\n▶ キーワード: {keyword}（{n+1}/{article_count}）")
 
+                    # タイトル生成プロンプト
                     title_input = title_base_prompt.replace("{{keyword}}", keyword.strip())
                     if title_prompt:
                         title_input += f"\n\n{title_prompt.strip()}"
@@ -102,6 +110,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     title = clean_title(raw_title)
                     print("✅ タイトル生成:", title)
 
+                    # 本文生成プロンプト
                     body_input = ""
                     if body_prompt:
                         body_input += body_prompt.strip() + "\n\n"
@@ -119,8 +128,9 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     content = body_res.choices[0].message.content.strip()
                     content = enhance_h2_tags(content)
 
-                    en_keyword = GoogleTranslator(source='ja', target='en').translate(keyword)
-                    image_urls = search_images(en_keyword, num_images=1)
+                    # 画像検索用に翻訳＋短縮
+                    short_en_kw = shorten_for_image_search(keyword)
+                    image_urls = search_images(short_en_kw, num_images=1)
                     featured_image = image_urls[0] if image_urls else None
 
                     scheduled_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
