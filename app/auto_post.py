@@ -56,9 +56,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
 
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst)
-        base_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        if now > base_start:
-            base_start = now
+        base_start = max(now, now.replace(hour=0, minute=0, second=0, microsecond=0))
 
         schedule_times = []
         for day in range(30):
