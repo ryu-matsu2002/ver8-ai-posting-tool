@@ -91,11 +91,13 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 try:
                     print(f"\n▶ キーワード: {keyword}（{n+1}/{article_count}）")
 
-                    title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
-                    if "{{" in title_full_prompt or "}}" in title_full_prompt or keyword not in title_full_prompt:
-                        print("❌ タイトルプロンプト置換失敗 → スキップ")
+                    # タイトルプロンプト置換と安全チェック
+                    title_full_prompt = title_prompt.replace("{{keyword}}", keyword.strip())
+                    if re.search(r"\{\{.*?\}\}", title_full_prompt):
+                        print("❌ タイトルプロンプトに置換漏れあり → スキップ")
                         continue
 
+                    # タイトル生成
                     title_response = client.chat.completions.create(
                         model="gpt-4-turbo",
                         messages=[
@@ -111,9 +113,10 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                         continue
                     print("✅ タイトル生成:", title)
 
-                    body_full_prompt = body_prompt.replace("{{title}}", title)
-                    if "{{" in body_full_prompt or "}}" in body_full_prompt or title not in body_full_prompt:
-                        print("❌ 本文プロンプト置換失敗 → スキップ")
+                    # 本文プロンプト置換と安全チェック
+                    body_full_prompt = body_prompt.replace("{{title}}", title.strip())
+                    if re.search(r"\{\{.*?\}\}", body_full_prompt):
+                        print("❌ 本文プロンプトに置換漏れあり → スキップ")
                         continue
 
                     content_response = client.chat.completions.create(

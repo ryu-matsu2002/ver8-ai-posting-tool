@@ -1,4 +1,4 @@
-# app/forms.py
+# 📄 app/forms.py
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, TextAreaField, SubmitField, SelectField
@@ -22,3 +22,10 @@ class AddSiteForm(FlaskForm):
     wp_username = StringField("WordPressユーザー名", validators=[DataRequired()])
     wp_app_password = StringField("アプリケーションパスワード", validators=[DataRequired()])
     submit = SubmitField("サイトを追加")
+
+# ✅ プロンプトテンプレート登録フォーム（新規追加）
+class PromptTemplateForm(FlaskForm):
+    genre = StringField("ジャンル", validators=[DataRequired()])
+    title_prompt = TextAreaField("タイトル生成プロンプト", validators=[DataRequired()])
+    body_prompt = TextAreaField("本文生成プロンプト", validators=[DataRequired()])
+    submit = SubmitField("テンプレートを保存")

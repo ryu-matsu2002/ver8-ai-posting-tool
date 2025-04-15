@@ -39,14 +39,19 @@
 
 <h2>新規テンプレートを保存</h2>
 <form method="POST" action="{{ url_for('routes.prompt_templates') }}" style="background: #fff; padding: 20px; border: 1px solid #ccc; border-radius: 8px;">
+    <!-- ✅ CSRFトークンを追加 -->
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
     <label for="genre">ジャンル名：</label>
     <input type="text" name="genre" id="genre" required style="width: 100%; padding: 10px; font-size: 14px;">
 
     <label for="title_prompt">タイトル生成プロンプト：</label>
     <textarea name="title_prompt" id="title_prompt" rows="5" required style="width: 100%; padding: 10px; font-size: 14px;"></textarea>
+    <small style="color: gray;">※ 必ず <code>{{ '{{keyword}}' }}</code> を含めてください</small>
 
     <label for="body_prompt">本文生成プロンプト：</label>
     <textarea name="body_prompt" id="body_prompt" rows="8" required style="width: 100%; padding: 10px; font-size: 14px;"></textarea>
+    <small style="color: gray;">※ 必ず <code>{{ '{{title}}' }}</code> を含めてください</small>
 
     <button type="submit" style="margin-top: 20px; padding: 10px 20px; background-color: #0073aa; color: white; border: none; border-radius: 4px; font-size: 14px;">テンプレートを保存</button>
 </form>

@@ -116,27 +116,38 @@ def delete_all_posts(site_id):
     flash('すべての記事を削除しました。')
     return redirect(url_for('routes.dashboard'))
 
-# ✅ テンプレート登録
+# ✅ テンプレート登録・表示（FlaskForm 対応済み）
 @routes_bp.route('/prompt-templates', methods=['GET', 'POST'])
 @login_required
 def prompt_templates():
-    if request.method == 'POST':
-        genre = request.form['genre']
-        title_prompt = request.form['title_prompt']
-        body_prompt = request.form['body_prompt']
+    from .forms import PromptTemplateForm  # 念のため明示的にインポート
 
-        template = PromptTemplate(
-            genre=genre,
-            title_prompt=title_prompt,
-            body_prompt=body_prompt,
-            user_id=current_user.id
-        )
-        db.session.add(template)
-        db.session.commit()
-        flash('テンプレートを保存しました')
+    form = PromptTemplateForm()
+    if form.validate_on_submit():
+        genre = form.genre.data.strip()
+        title_prompt = form.title_prompt.data.strip()
+        body_prompt = form.body_prompt.data.strip()
+
+        # プレースホルダの最低限チェック
+        if "{{keyword}}" not in title_prompt:
+            flash("タイトルプロンプトに {{keyword}} を含めてください", "error")
+        elif "{{title}}" not in body_prompt:
+            flash("本文プロンプトに {{title}} を含めてください", "error")
+        else:
+            template = PromptTemplate(
+                genre=genre,
+                title_prompt=title_prompt,
+                body_prompt=body_prompt,
+                user_id=current_user.id
+            )
+            db.session.add(template)
+            db.session.commit()
+            flash("テンプレートを保存しました", "success")
+            return redirect(url_for('routes.prompt_templates'))
 
     templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
-    return render_template('prompt_templates.html', prompt_templates=templates)
+    return render_template('prompt_templates.html', form=form, prompt_templates=templates)
+
 
 @routes_bp.route('/prompt-templates/delete/<int:template_id>', methods=['POST'])
 @login_required
