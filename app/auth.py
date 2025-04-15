@@ -1,18 +1,18 @@
 # app/auth.py
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from .models import db, User
-from .forms import LoginForm  # ✅ LoginForm をインポート
+from .forms import LoginForm, SignupForm  # ✅ SignupForm をインポート
 
 auth_bp = Blueprint('auth', __name__)
 
 # ログイン
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    form = LoginForm()  # ✅ フォームをインスタンス化
+    form = LoginForm()
     if form.validate_on_submit():
         email = form.email.data
         password = form.password.data
@@ -23,7 +23,7 @@ def login():
             return redirect(url_for('routes.dashboard'))
         else:
             flash('メールアドレスまたはパスワードが間違っています。')
-    return render_template('login.html', form=form)  # ✅ form をテンプレートに渡す
+    return render_template('login.html', form=form)
 
 # ログアウト
 @auth_bp.route('/logout')
@@ -36,10 +36,11 @@ def logout():
 # 新規登録
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    if request.method == 'POST':
-        email = request.form['email']
-        username = request.form['username']
-        password = request.form['password']
+    form = SignupForm()
+    if form.validate_on_submit():
+        email = form.email.data
+        username = form.username.data
+        password = form.password.data
 
         existing_user = User.query.filter((User.email == email) | (User.username == username)).first()
         if existing_user:
@@ -53,4 +54,4 @@ def register():
         flash('ユーザー登録が完了しました。ログインしてください。')
         return redirect(url_for('auth.login'))
 
-    return render_template('register.html')
+    return render_template('register.html', form=form)

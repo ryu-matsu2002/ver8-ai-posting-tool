@@ -4,6 +4,12 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, TextAreaField, SubmitField, SelectField
 from wtforms.validators import DataRequired, Email, URL
 
+# ✅ ユーザー登録フォーム
+class SignupForm(FlaskForm):
+    username = StringField('ユーザー名', validators=[DataRequired()])
+    email = StringField('メールアドレス', validators=[DataRequired(), Email()])
+    password = PasswordField('パスワード', validators=[DataRequired()])
+
 # ✅ ログインフォーム
 class LoginForm(FlaskForm):
     email = StringField('メールアドレス', validators=[DataRequired(), Email()])
@@ -23,7 +29,7 @@ class AddSiteForm(FlaskForm):
     wp_app_password = StringField("アプリケーションパスワード", validators=[DataRequired()])
     submit = SubmitField("サイトを追加")
 
-# ✅ プロンプトテンプレート登録フォーム（新規追加）
+# ✅ プロンプトテンプレート登録フォーム
 class PromptTemplateForm(FlaskForm):
     genre = StringField("ジャンル", validators=[DataRequired()])
     title_prompt = TextAreaField("タイトル生成プロンプト", validators=[DataRequired()])
