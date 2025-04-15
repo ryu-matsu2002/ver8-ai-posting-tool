@@ -22,6 +22,33 @@ load_dotenv()
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# ✅ ベースプロンプト定義
+title_base_prompt = """あなたはSEOとコンテンツマーケティングの専門家です。
+
+次のキーワードに基づいてWEBサイト用のQ&A形式の「記事タイトル」を1つ考えてください。
+
+キーワード：「{{keyword}}」
+
+条件：
+- キーワードの順番は変えない
+- 必ずそのままキーワードを使う
+- 文末は「？」にしてください
+"""
+
+body_base_prompt = """🔧執筆ルール（必ず守ること）
+
+1. 構成：問題提起 → 共感 → 解決策
+2. 読者は「あなた」と呼ぶこと（「皆さん」禁止）
+3. 親友に語りかけるように、ただし敬語で
+4. 改行は段落の終わりのみ、1〜3行で段落、段落間は2行空ける
+5. 記事は2500〜3500文字程度
+6. 適切な見出し（hタグ）を付けて構成する
+
+次のタイトルに基づいて本文を生成してください：
+
+タイトル：「{{title}}」
+"""
+
 def insert_images_after_headings_random(content, image_urls):
     headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
     if not headings or not image_urls:
@@ -32,7 +59,7 @@ def insert_images_after_headings_random(content, image_urls):
     new_content = content
     offset = 0
 
-    for i, heading in enumerate(insert_positions):
+    for heading in insert_positions:
         img_url = image_urls.pop(0)
         img_tag = f'<img src="{img_url}" style="max-width:100%; margin: 15px 0;">'
         insert_at = heading.end() + offset
@@ -58,21 +85,15 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         app_password = site.wp_app_password
         site_url = site.site_url
 
-        if not title_prompt or not body_prompt:
-            print("❌ プロンプトが未設定です。")
-            return
-
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst)
         base_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        if now > base_start:
-            base_start = now
 
         schedule_times = []
         for day in range(30):
             base = base_start + timedelta(days=day)
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
-            hours = sorted(random.sample(range(10, 22), k=min(num_posts, 11)))
+            hours = sorted(random.sample(range(10, 22), k=num_posts))
             for h in hours:
                 minute = random.randint(0, 59)
                 post_time = base.replace(hour=h, minute=minute)
@@ -90,12 +111,13 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 try:
                     print(f"\n▶ キーワード: {keyword}（{n+1}/{article_count}）")
 
-                    # タイトルプロンプト置換
-                    title_full_prompt = title_prompt.replace("{{keyword}}", keyword.strip())
+                    title_full_prompt = title_base_prompt.replace("{{keyword}}", keyword.strip())
+                    if title_prompt:
+                        title_full_prompt += f"\n\n#補足:\n{title_prompt.strip()}"
+
                     print("📤 GPTへのタイトルプロンプト送信内容：")
                     print(title_full_prompt)
 
-                    # GPTへ送信
                     title_response = client.chat.completions.create(
                         model="gpt-4-turbo",
                         messages=[
@@ -106,13 +128,12 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                         max_tokens=100
                     )
                     title = title_response.choices[0].message.content.strip().split("\n")[0]
-                    if not title or len(title) < 5:
-                        print(f"❌ タイトルが無効（{keyword}）")
-                        continue
                     print("✅ タイトル生成:", title)
 
-                    # 本文プロンプト置換
-                    body_full_prompt = body_prompt.replace("{{title}}", title.strip())
+                    body_full_prompt = body_base_prompt.replace("{{title}}", title.strip())
+                    if body_prompt:
+                        body_full_prompt += f"\n\n#補足:\n{body_prompt.strip()}"
+
                     print("📤 GPTへの本文プロンプト送信内容：")
                     print(body_full_prompt)
 
@@ -126,7 +147,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                         max_tokens=2000
                     )
                     content = content_response.choices[0].message.content.strip()
-                    if not content or len(content) < 100:
+                    if len(content) < 100:
                         print("❌ 本文が短すぎる → スキップ")
                         continue
 
@@ -161,7 +182,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     print(f"❌ 例外発生（{keyword}）: {e}")
                     traceback.print_exc()
                     db.session.rollback()
-                    
+
 @auto_post_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
 def auto_post():
@@ -178,7 +199,7 @@ def auto_post():
 
         selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
         if not selected_template:
-            print("❌ 選択されたテンプレートが見つかりません。")
+            print("❌ テンプレートが見つかりません。")
             return redirect(url_for('auto_post.auto_post'))
 
         title_prompt = selected_template.title_prompt
