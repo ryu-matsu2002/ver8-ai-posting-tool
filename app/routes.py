@@ -127,12 +127,13 @@ def prompt_templates():
         title_prompt = form.title_prompt.data.strip()
         body_prompt = form.body_prompt.data.strip()
 
-        # ✅ 自動補完処理を追加（{{keyword}} / {{title}} がなければ追記）
+        # ✅ {{keyword}} が含まれていなければ冒頭に強制追加
         if "{{keyword}}" not in title_prompt:
-            title_prompt += "\n\n【補足】この記事はキーワード（{{keyword}}）に基づいて作成されます。"
+            title_prompt = "以下のキーワードに基づいてタイトルを生成してください：{{keyword}}\n\n" + title_prompt
 
+        # ✅ {{title}} が含まれていなければ冒頭に強制追加
         if "{{title}}" not in body_prompt:
-            body_prompt += "\n\n【補足】以下のタイトル（{{title}}）に対する回答記事です。"
+            body_prompt = "以下のタイトル（{{title}}）に対して記事本文を生成してください。\n\n" + body_prompt
 
         template = PromptTemplate(
             genre=genre,
@@ -147,8 +148,6 @@ def prompt_templates():
 
     templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
     return render_template('prompt_templates.html', form=form, prompt_templates=templates)
-
-
 
 @routes_bp.route('/prompt-templates/delete/<int:template_id>', methods=['POST'])
 @login_required

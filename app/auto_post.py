@@ -96,6 +96,9 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     if re.search(r"\{\{.*?\}\}", title_full_prompt):
                         print("❌ タイトルプロンプトに置換漏れあり → スキップ")
                         continue
+                    # ✅ ここでプロンプトの中身をログ出力
+                    print("📤 GPTへのタイトルプロンプト送信内容：")
+                    print(title_full_prompt)
 
                     # タイトル生成
                     title_response = client.chat.completions.create(
@@ -118,6 +121,10 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     if re.search(r"\{\{.*?\}\}", body_full_prompt):
                         print("❌ 本文プロンプトに置換漏れあり → スキップ")
                         continue
+
+                    # ✅ ここで本文プロンプトもログ出力
+                    print("📤 GPTへの本文プロンプト送信内容：")
+                    print(body_full_prompt)
 
                     content_response = client.chat.completions.create(
                         model="gpt-4-turbo",
