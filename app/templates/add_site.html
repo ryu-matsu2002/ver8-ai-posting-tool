@@ -3,24 +3,34 @@
 {% block title %}サイト追加{% endblock %}
 
 {% block content %}
-<h1>サイトを追加</h1>
+<div style="max-width: 600px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+    <h1 style="margin-bottom: 25px;">サイトを追加</h1>
 
-<form action="{{ url_for('routes.add_site') }}" method="POST" style="background: #fff; padding: 30px; border-radius: 8px; max-width: 500px;">
-    <label for="site_url">サイトURL:</label><br>
-    <input type="text" name="site_url" id="site_url" required style="width: 100%; padding: 10px; margin-bottom: 20px;"><br>
+    <form action="{{ url_for('routes.add_site') }}" method="POST">
+        {{ form.hidden_tag() }}  {# ✅ CSRFトークンを含む #}
 
-    <label for="wp_username">WordPressユーザー名:</label><br>
-    <input type="text" name="wp_username" id="wp_username" required style="width: 100%; padding: 10px; margin-bottom: 20px;"><br>
+        <div style="margin-bottom: 20px;">
+            <label for="site_url" style="font-weight: bold;">サイトURL:</label><br>
+            {{ form.site_url(id="site_url", required=True, class="form-control", style="width: 100%; padding: 10px;") }}
+        </div>
 
-    <label for="wp_app_password">WordPressアプリパスワード:</label><br>
-    <input type="text" name="wp_app_password" id="wp_app_password" required style="width: 100%; padding: 10px; margin-bottom: 20px;"><br>
+        <div style="margin-bottom: 20px;">
+            <label for="wp_username" style="font-weight: bold;">WordPressユーザー名:</label><br>
+            {{ form.wp_username(id="wp_username", required=True, class="form-control", style="width: 100%; padding: 10px;") }}
+        </div>
 
-    <button type="submit" style="padding: 10px 20px; background-color: #0073aa; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
-        サイトを追加
-    </button>
-</form>
+        <div style="margin-bottom: 30px;">
+            <label for="wp_app_password" style="font-weight: bold;">WordPressアプリパスワード:</label><br>
+            {{ form.wp_app_password(id="wp_app_password", required=True, class="form-control", style="width: 100%; padding: 10px;") }}
+        </div>
 
-<div style="margin-top: 20px;">
-    <a href="{{ url_for('routes.dashboard') }}" style="color: #0073aa;">← ダッシュボードに戻る</a>
+        <button type="submit" style="padding: 12px 24px; background-color: #0073aa; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">
+            サイトを追加
+        </button>
+    </form>
+
+    <div style="margin-top: 20px;">
+        <a href="{{ url_for('routes.dashboard') }}" style="color: #0073aa;">← ダッシュボードに戻る</a>
+    </div>
 </div>
 {% endblock %}

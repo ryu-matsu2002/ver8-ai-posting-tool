@@ -1,4 +1,4 @@
-# 📄 app/auto_post.py（前半）
+# 📄 app/auto_post.py
 
 import os
 import threading
@@ -22,31 +22,31 @@ load_dotenv()
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ⬇ 見出しのすぐ下にランダムで2枚まで画像を挿入
+# ⬇ 見出しの直下にランダムで最大2枚まで画像挿入
 def insert_images_after_headings_random(content, image_urls):
     headings = list(re.finditer(r'<h2.*?>.*?</h2>', content, flags=re.IGNORECASE))
     if not headings or not image_urls:
         return content
 
-    selected_positions = random.sample(headings, min(2, len(headings), len(image_urls)))
+    insert_positions = random.sample(headings, min(2, len(headings), len(image_urls)))
+    insert_positions.sort(key=lambda x: x.start())  # 順序保持
     new_content = content
     offset = 0
 
-    for i, heading in enumerate(headings):
-        if heading in selected_positions:
-            img_tag = f'<img src="{image_urls.pop(0)}" style="max-width:100%; margin-top:10px;">'
-            insert_pos = heading.end() + offset
-            new_content = new_content[:insert_pos] + "\n\n" + img_tag + new_content[insert_pos:]
-            offset += len(img_tag) + 2
-            if not image_urls:
-                break
+    for i, heading in enumerate(insert_positions):
+        img_url = image_urls.pop(0)
+        img_tag = f'<img src="{img_url}" style="max-width:100%; margin: 15px 0;">'
+        insert_at = heading.end() + offset
+        new_content = new_content[:insert_at] + "\n\n" + img_tag + new_content[insert_at:]
+        offset += len(img_tag) + 2
+        if not image_urls:
+            break
 
     return new_content
 
 def is_generation_stopped(user_id):
     control = GenerationControl.query.filter_by(user_id=user_id).first()
     return control and control.stop_flag
-# 📄 app/auto_post.py（後半）
 
 def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id, user_id):
     with app.app_context():
@@ -92,7 +92,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     print(f"\n▶ キーワード: {keyword}（{n+1}/{article_count}）")
 
                     title_full_prompt = title_prompt.replace("{{keyword}}", keyword)
-                    if "{{" in title_full_prompt or "}}" in title_full_prompt:
+                    if "{{" in title_full_prompt or "}}" in title_full_prompt or keyword not in title_full_prompt:
                         print("❌ タイトルプロンプト置換失敗 → スキップ")
                         continue
 
@@ -112,7 +112,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     print("✅ タイトル生成:", title)
 
                     body_full_prompt = body_prompt.replace("{{title}}", title)
-                    if "{{" in body_full_prompt or "}}" in body_full_prompt:
+                    if "{{" in body_full_prompt or "}}" in body_full_prompt or title not in body_full_prompt:
                         print("❌ 本文プロンプト置換失敗 → スキップ")
                         continue
 

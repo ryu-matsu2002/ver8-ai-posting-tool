@@ -7,7 +7,7 @@ import threading
 from .wordpress_post import post_to_wordpress
 
 from .auto_post import generate_and_save_articles
-from .forms import AutoPostForm
+from .forms import AutoPostForm, AddSiteForm
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -160,10 +160,11 @@ def index():
 @routes_bp.route('/add-site', methods=['GET', 'POST'], endpoint='add_site')
 @login_required
 def add_site():
-    if request.method == 'POST':
-        site_url = request.form['site_url']
-        wp_username = request.form['wp_username']
-        wp_app_password = request.form['wp_app_password']
+    form = AddSiteForm()
+    if form.validate_on_submit():
+        site_url = form.site_url.data.strip()
+        wp_username = form.wp_username.data.strip()
+        wp_app_password = form.wp_app_password.data.strip()
 
         new_site = Site(
             site_url=site_url,
@@ -176,7 +177,7 @@ def add_site():
         flash('サイトを追加しました。')
         return redirect(url_for('routes.dashboard'))
 
-    return render_template('add_site.html')
+    return render_template('add_site.html', form=form)
 
 # ✅ ScheduledPost：プレビュー・編集・削除・即時投稿
 @routes_bp.route('/preview_post/<int:post_id>')
