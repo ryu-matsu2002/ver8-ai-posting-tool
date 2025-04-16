@@ -11,6 +11,7 @@ from flask import Blueprint, current_app, render_template, redirect, url_for
 from flask_login import current_user, login_required
 from dotenv import load_dotenv
 from openai import OpenAI
+
 from .models import db, Site, ScheduledPost, PromptTemplate, GenerationControl
 from .image_search import search_images
 from .forms import AutoPostForm
@@ -102,7 +103,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     scheduled_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
                     scheduled_index += 1
 
-                    # 🔸ステータス: 生成中で仮登録
+                    # 🔸 生成中として事前保存
                     pre_post = ScheduledPost(
                         title="生成中...",
                         body="",
@@ -120,7 +121,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     db.session.add(pre_post)
                     db.session.commit()
 
-                    # 🔸記事生成
+                    # 🔸 タイトル生成
                     title_input = title_base_prompt.replace("{{keyword}}", keyword.strip())
                     if title_prompt:
                         title_input += f"\n\n{title_prompt.strip()}"
@@ -138,6 +139,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     title = clean_title(raw_title)
                     print("✅ タイトル生成:", title)
 
+                    # 🔸 本文生成
                     body_input = ""
                     if body_prompt:
                         body_input += body_prompt.strip() + "\n\n"
@@ -155,11 +157,12 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     content = body_res.choices[0].message.content.strip()
                     content = enhance_h2_tags(content)
 
+                    # 🔸 アイキャッチ画像生成
                     image_kw = generate_image_keyword_from_title(title)
                     image_urls = search_images(image_kw, num_images=1)
                     featured_image = image_urls[0] if image_urls else None
 
-                    # 🔸レコード更新
+                    # 🔸 レコード更新
                     pre_post.title = title
                     pre_post.body = content
                     pre_post.featured_image = featured_image

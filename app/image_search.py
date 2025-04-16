@@ -10,10 +10,17 @@ def clean_query(query):
     """
     query = query.strip().lower()
     query = re.sub(r'[\"\'\(\)\[\]\{\}:;]', '', query)  # 記号除去
-    query = re.sub(r'[^\w\s]', '', query)              # 英数字・空白以外を削除
-    query = re.sub(r'\s+', '+', query)                 # 空白を + に変換（Pixabay仕様）
-    query = query[:100]                                # 長すぎる検索語をカット
-    return query
+    query = re.sub(r'[。、，・！!？?\-＝＝…]', '', query)  # 全角記号も除去
+    query = re.sub(r'\d+\.', '', query)  # 「1. keyword」など番号除去
+    query = re.sub(r'[^\w\s]', '', query)  # 英数字・空白以外を削除
+    query = re.sub(r'\s+', ' ', query)  # 多重スペースを1つに
+
+    # 英単語3語以内に制限
+    words = query.split()
+    query = '+'.join(words[:3])
+
+    return query[:100]  # 長すぎる検索語は100文字でカット
+
 
 def search_images(query, num_images=2):
     """
@@ -39,7 +46,10 @@ def search_images(query, num_images=2):
 
     try:
         response = requests.get(PIXABAY_API_URL, params=params, timeout=10)
-        response.raise_for_status()
+        if response.status_code != 200:
+            print(f"❌ Pixabay APIリクエスト失敗: {response.status_code} - {response.text}")
+            return []
+
         data = response.json()
         image_urls = [hit['webformatURL'] for hit in data.get('hits', [])]
 
@@ -49,5 +59,5 @@ def search_images(query, num_images=2):
         return image_urls
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Pixabay APIリクエストに失敗しました: {e}")
+        print(f"❌ Pixabay API例外発生: {e}")
         return []
