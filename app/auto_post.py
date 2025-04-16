@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import pytz
 import traceback
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from flask import Blueprint, current_app, render_template, redirect, url_for
 from flask_login import current_user, login_required
@@ -63,15 +64,86 @@ Pixabayで画像を探すのに最適な英語の2～3語の検索キーワー�
         print("❌ ChatGPTによる画像キーワード生成失敗:", e)
         return "nature"
 
+def process_article(app, keyword, title_prompt, body_prompt, schedule_time, site, user_id):
+    with app.app_context():
+        if is_generation_stopped(user_id):
+            print("🛑 停止フラグ検出 → 中断")
+            return
+
+        try:
+            # 仮保存
+            pre_post = ScheduledPost(
+                title="生成中...",
+                body="",
+                keyword=keyword,
+                featured_image=None,
+                status="生成中",
+                scheduled_time=schedule_time,
+                created_at=datetime.utcnow(),
+                site_url=site.site_url,
+                username=site.wp_username,
+                app_password=site.wp_app_password,
+                user_id=user_id,
+                site_id=site.id
+            )
+            db.session.add(pre_post)
+            db.session.commit()
+
+            # タイトル生成
+            title_input = title_base_prompt.replace("{{keyword}}", keyword.strip())
+            if title_prompt:
+                title_input += f"\n\n{title_prompt.strip()}"
+
+            title_res = client.chat.completions.create(
+                model="gpt-4-turbo",
+                messages=[{"role": "system", "content": "あなたはSEOの専門家です。"},
+                          {"role": "user", "content": title_input}],
+                temperature=0.7,
+                max_tokens=100
+            )
+            raw_title = title_res.choices[0].message.content.strip().split("\n")[0]
+            title = clean_title(raw_title)
+            print("✅ タイトル生成:", title)
+
+            # 本文生成
+            body_input = (body_prompt.strip() + "\n\n") if body_prompt else ""
+            body_input += body_base_prompt + f"\n\nタイトル：「{title}」に基づいて本文を生成してください。"
+
+            body_res = client.chat.completions.create(
+                model="gpt-4-turbo",
+                messages=[{"role": "system", "content": "あなたはSEOライターです。"},
+                          {"role": "user", "content": body_input}],
+                temperature=0.7,
+                max_tokens=2000
+            )
+            content = enhance_h2_tags(body_res.choices[0].message.content.strip())
+
+            # アイキャッチ画像
+            image_kw = generate_image_keyword_from_title(title)
+            image_urls = search_images(image_kw, num_images=1)
+            featured_image = image_urls[0] if image_urls else None
+
+            # レコード更新
+            pre_post.title = title
+            pre_post.body = content
+            pre_post.featured_image = featured_image
+            pre_post.status = "生成完了"
+            db.session.commit()
+
+            print(f"✅ 保存完了: {title}")
+            time.sleep(random.uniform(1.0, 2.0))  # 軽量スリープ
+
+        except Exception as e:
+            print(f"❌ 例外発生（{keyword}）: {e}")
+            traceback.print_exc()
+            db.session.rollback()
+
 def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id, user_id):
     with app.app_context():
         site = Site.query.filter_by(id=site_id, user_id=user_id).first()
         if not site:
             print("[エラー] サイト情報が見つかりません。")
             return
-        username = site.wp_username
-        app_password = site.wp_app_password
-        site_url = site.site_url
 
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst)
@@ -90,92 +162,32 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     times.append(candidate)
             schedule_times.extend(sorted([t.astimezone(pytz.utc) for t in times]))
 
+        futures = []
         scheduled_index = 0
+        executor = ThreadPoolExecutor(max_workers=3)
+
         for keyword in keywords:
             article_count = random.choice([2, 3])
-            for n in range(article_count):
-                if is_generation_stopped(user_id):
-                    print("🛑 停止フラグ検出 → 中断")
-                    return
-                try:
-                    print(f"\n▶ キーワード: {keyword}（{n+1}/{article_count}）")
+            for _ in range(article_count):
+                if scheduled_index >= len(schedule_times):
+                    schedule_time = now + timedelta(days=1)
+                else:
+                    schedule_time = schedule_times[scheduled_index]
+                scheduled_index += 1
 
-                    scheduled_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
-                    scheduled_index += 1
+                futures.append(executor.submit(
+                    process_article,
+                    app,
+                    keyword,
+                    title_prompt,
+                    body_prompt,
+                    schedule_time,
+                    site,
+                    user_id
+                ))
 
-                    # 🔸 生成中として事前保存
-                    pre_post = ScheduledPost(
-                        title="生成中...",
-                        body="",
-                        keyword=keyword,
-                        featured_image=None,
-                        status="生成中",
-                        scheduled_time=scheduled_time,
-                        created_at=datetime.utcnow(),
-                        site_url=site_url,
-                        username=username,
-                        app_password=app_password,
-                        user_id=user_id,
-                        site_id=site_id
-                    )
-                    db.session.add(pre_post)
-                    db.session.commit()
-
-                    # 🔸 タイトル生成
-                    title_input = title_base_prompt.replace("{{keyword}}", keyword.strip())
-                    if title_prompt:
-                        title_input += f"\n\n{title_prompt.strip()}"
-
-                    title_res = client.chat.completions.create(
-                        model="gpt-4-turbo",
-                        messages=[
-                            {"role": "system", "content": "あなたはSEOの専門家です。"},
-                            {"role": "user", "content": title_input}
-                        ],
-                        temperature=0.7,
-                        max_tokens=100
-                    )
-                    raw_title = title_res.choices[0].message.content.strip().split("\n")[0]
-                    title = clean_title(raw_title)
-                    print("✅ タイトル生成:", title)
-
-                    # 🔸 本文生成
-                    body_input = ""
-                    if body_prompt:
-                        body_input += body_prompt.strip() + "\n\n"
-                    body_input += body_base_prompt + f"\n\nタイトル：「{title}」に基づいて本文を生成してください。"
-
-                    body_res = client.chat.completions.create(
-                        model="gpt-4-turbo",
-                        messages=[
-                            {"role": "system", "content": "あなたはSEOライターです。"},
-                            {"role": "user", "content": body_input}
-                        ],
-                        temperature=0.7,
-                        max_tokens=4096
-                    )
-                    content = body_res.choices[0].message.content.strip()
-                    content = enhance_h2_tags(content)
-
-                    # 🔸 アイキャッチ画像生成
-                    image_kw = generate_image_keyword_from_title(title)
-                    image_urls = search_images(image_kw, num_images=1)
-                    featured_image = image_urls[0] if image_urls else None
-
-                    # 🔸 レコード更新
-                    pre_post.title = title
-                    pre_post.body = content
-                    pre_post.featured_image = featured_image
-                    pre_post.status = "生成完了"
-                    db.session.commit()
-
-                    print(f"✅ 保存完了: {title}")
-                    time.sleep(5)
-
-                except Exception as e:
-                    print(f"❌ 例外発生（{keyword}）: {e}")
-                    traceback.print_exc()
-                    db.session.rollback()
+        for future in as_completed(futures):
+            future.result()
 
 @auto_post_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
