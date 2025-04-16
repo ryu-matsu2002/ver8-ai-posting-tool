@@ -16,9 +16,18 @@ def admin_log(site_id):
     if not site:
         return "サイトが見つかりません", 404
 
-    posts = ScheduledPost.query.filter_by(site_id=site.id, user_id=current_user.id).order_by(ScheduledPost.scheduled_time.asc()).all()
+    # ✅ クエリパラメータからステータス取得（例：?status=生成中）
+    filter_status = request.args.get("status", None)
+
+    # ✅ 投稿取得クエリ
+    query = ScheduledPost.query.filter_by(site_id=site.id, user_id=current_user.id)
+    if filter_status:
+        query = query.filter_by(status=filter_status)
+
+    posts = query.order_by(ScheduledPost.scheduled_time.asc()).all()
     jst = timezone(timedelta(hours=9))  # 日本時間（JST）
-    return render_template('admin_log.html', posts=posts, site_id=site_id, jst=jst)
+
+    return render_template('admin_log.html', posts=posts, site_id=site_id, jst=jst, filter_status=filter_status)
 
 # 投稿削除処理
 @admin_log_bp.route('/admin/log/<int:site_id>/delete/<int:post_id>', methods=['POST'])

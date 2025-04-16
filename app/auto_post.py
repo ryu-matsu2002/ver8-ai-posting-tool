@@ -99,6 +99,28 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                 try:
                     print(f"\n▶ キーワード: {keyword}（{n+1}/{article_count}）")
 
+                    scheduled_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
+                    scheduled_index += 1
+
+                    # 🔸ステータス: 生成中で仮登録
+                    pre_post = ScheduledPost(
+                        title="生成中...",
+                        body="",
+                        keyword=keyword,
+                        featured_image=None,
+                        status="生成中",
+                        scheduled_time=scheduled_time,
+                        created_at=datetime.utcnow(),
+                        site_url=site_url,
+                        username=username,
+                        app_password=app_password,
+                        user_id=user_id,
+                        site_id=site_id
+                    )
+                    db.session.add(pre_post)
+                    db.session.commit()
+
+                    # 🔸記事生成
                     title_input = title_base_prompt.replace("{{keyword}}", keyword.strip())
                     if title_prompt:
                         title_input += f"\n\n{title_prompt.strip()}"
@@ -137,25 +159,13 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
                     image_urls = search_images(image_kw, num_images=1)
                     featured_image = image_urls[0] if image_urls else None
 
-                    scheduled_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
-                    scheduled_index += 1
-
-                    post = ScheduledPost(
-                        title=title,
-                        body=content,
-                        keyword=keyword,
-                        featured_image=featured_image,
-                        status="生成完了",
-                        scheduled_time=scheduled_time,
-                        created_at=datetime.utcnow(),
-                        site_url=site_url,
-                        username=username,
-                        app_password=app_password,
-                        user_id=user_id,
-                        site_id=site_id
-                    )
-                    db.session.add(post)
+                    # 🔸レコード更新
+                    pre_post.title = title
+                    pre_post.body = content
+                    pre_post.featured_image = featured_image
+                    pre_post.status = "生成完了"
                     db.session.commit()
+
                     print(f"✅ 保存完了: {title}")
                     time.sleep(5)
 

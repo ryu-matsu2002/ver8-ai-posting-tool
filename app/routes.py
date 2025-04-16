@@ -62,7 +62,7 @@ def auto_post():
 
     return render_template('auto_post.html', form=form, sites=sites, prompt_templates=templates)
 
-# ✅ 投稿ログ
+# ✅ 投稿ログ（ステータス選択も反映）
 @routes_bp.route('/admin/log/<int:site_id>')
 @login_required
 def admin_log(site_id):
@@ -72,7 +72,8 @@ def admin_log(site_id):
     if filter_status:
         query = query.filter_by(status=filter_status)
 
-    posts = query.order_by(ScheduledPost.scheduled_time.asc()).all()
+    # ⬇ 投稿は作成日時の降順（新しい順）で表示
+    posts = query.order_by(ScheduledPost.created_at.desc()).all()
     jst = pytz.timezone("Asia/Tokyo")
     return render_template('admin_log.html', posts=posts, jst=jst, site_id=site_id, filter_status=filter_status)
 
