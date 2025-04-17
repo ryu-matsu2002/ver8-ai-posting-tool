@@ -5,12 +5,10 @@ from datetime import datetime, timedelta
 import pytz
 import random
 from .wordpress_post import post_to_wordpress
-
 from .forms import AutoPostForm, AddSiteForm, PromptTemplateForm
 
 routes_bp = Blueprint('routes', __name__)
 
-# ✅ ダッシュボード
 @routes_bp.route('/dashboard', endpoint='dashboard')
 @login_required
 def dashboard():
@@ -18,7 +16,6 @@ def dashboard():
     user_articles = Article.query.join(Site).filter(Site.user_id == current_user.id).all()
     return render_template('dashboard.html', username=current_user.username, sites=user_sites, articles=user_articles)
 
-# ✅ 自動投稿ページ
 @routes_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
 def auto_post():
@@ -37,9 +34,6 @@ def auto_post():
         if not selected_template:
             flash("テンプレートが見つかりません")
             return redirect(url_for('routes.auto_post'))
-
-        title_prompt = selected_template.title_prompt
-        body_prompt = selected_template.body_prompt
 
         control = GenerationControl.query.filter_by(user_id=current_user.id).first()
         if not control:
@@ -79,8 +73,10 @@ def auto_post():
                     title="生成中...",
                     body="",
                     keyword=keyword,
+                    prompt_title=selected_template.title_prompt,
+                    prompt_body=selected_template.body_prompt,
                     featured_image=None,
-                    status="生成中",
+                    status="生成待ち",
                     scheduled_time=schedule_time,
                     created_at=datetime.utcnow(),
                     site_url=site.site_url,
@@ -97,140 +93,16 @@ def auto_post():
 
     return render_template('auto_post.html', form=form, sites=sites, prompt_templates=templates)
 
-# ✅ 投稿ログ（ステータス選択も反映）
 @routes_bp.route('/admin/log/<int:site_id>')
 @login_required
 def admin_log(site_id):
     filter_status = request.args.get("status", None)
     query = ScheduledPost.query.filter_by(site_id=site_id, user_id=current_user.id)
-
     if filter_status:
         query = query.filter_by(status=filter_status)
-
-    # ⬇ 投稿は作成日時の降順（新しい順）で表示
     posts = query.order_by(ScheduledPost.created_at.desc()).all()
     jst = pytz.timezone("Asia/Tokyo")
     return render_template('admin_log.html', posts=posts, jst=jst, site_id=site_id, filter_status=filter_status)
-
-# ✅ Article系：編集・削除・プレビュー
-@routes_bp.route('/edit_article/<int:post_id>', methods=['GET', 'POST'])
-@login_required
-def edit_article(post_id):
-    post = Article.query.get_or_404(post_id)
-    if request.method == 'POST':
-        post.title = request.form['title']
-        post.content = request.form['content']
-        db.session.commit()
-        flash('記事を更新しました。')
-        return redirect(url_for('routes.dashboard'))
-    return render_template('edit_article.html', article=post)
-
-@routes_bp.route('/delete_article/<int:post_id>', methods=['GET'])
-@login_required
-def delete_article(post_id):
-    post = Article.query.get_or_404(post_id)
-    db.session.delete(post)
-    db.session.commit()
-    flash('記事を削除しました。')
-    return redirect(url_for('routes.dashboard'))
-
-@routes_bp.route('/preview_article/<int:post_id>')
-@login_required
-def preview_article(post_id):
-    post = Article.query.get_or_404(post_id)
-    return render_template('preview_article.html', article=post)
-
-# ✅ 全記事削除
-@routes_bp.route('/delete_all_posts/<int:site_id>', methods=['POST'])
-@login_required
-def delete_all_posts(site_id):
-    posts = Article.query.filter_by(site_id=site_id).all()
-    for post in posts:
-        db.session.delete(post)
-    db.session.commit()
-    flash('すべての記事を削除しました。')
-    return redirect(url_for('routes.dashboard'))
-
-# ✅ テンプレート管理
-@routes_bp.route('/prompt-templates', methods=['GET', 'POST'])
-@login_required
-def prompt_templates():
-    form = PromptTemplateForm()
-
-    if form.validate_on_submit():
-        genre = form.genre.data.strip()
-        title_prompt = form.title_prompt.data.strip()
-        body_prompt = form.body_prompt.data.strip()
-
-        # ✅ 自動的に {{keyword}} / {{title}} を補完
-        if "{{keyword}}" not in title_prompt:
-            title_prompt = "{{keyword}}\n\n" + title_prompt
-        if "{{title}}" not in body_prompt:
-            body_prompt = "{{title}}\n\n" + body_prompt
-
-        template = PromptTemplate(
-            genre=genre,
-            title_prompt=title_prompt,
-            body_prompt=body_prompt,
-            user_id=current_user.id
-        )
-        db.session.add(template)
-        db.session.commit()
-        flash("テンプレートを保存しました", "success")
-        return redirect(url_for('routes.prompt_templates'))
-
-    templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
-    return render_template('prompt_templates.html', form=form, prompt_templates=templates)
-@routes_bp.route('/prompt-templates/delete/<int:template_id>', methods=['POST'])
-@login_required
-def delete_prompt_template(template_id):
-    template = PromptTemplate.query.get_or_404(template_id)
-    if template.user_id != current_user.id:
-        flash('削除権限がありません')
-        return redirect(url_for('routes.prompt_templates'))
-
-    db.session.delete(template)
-    db.session.commit()
-    flash('テンプレートを削除しました')
-    return redirect(url_for('routes.prompt_templates'))
-
-# ✅ トップページ
-@routes_bp.route('/')
-def index():
-    return redirect(url_for('auth.login'))
-
-# ✅ サイト追加
-@routes_bp.route('/add-site', methods=['GET', 'POST'], endpoint='add_site')
-@login_required
-def add_site():
-    form = AddSiteForm()
-    if form.validate_on_submit():
-        site_url = form.site_url.data.strip()
-        wp_username = form.wp_username.data.strip()
-        wp_app_password = form.wp_app_password.data.strip()
-
-        new_site = Site(
-            site_url=site_url,
-            wp_username=wp_username,
-            wp_app_password=wp_app_password,
-            user_id=current_user.id
-        )
-        db.session.add(new_site)
-        db.session.commit()
-        flash('サイトを追加しました。')
-        return redirect(url_for('routes.dashboard'))
-
-    return render_template('add_site.html', form=form)
-
-# ✅ ScheduledPost：プレビュー・編集・削除・即時投稿
-@routes_bp.route('/preview_post/<int:post_id>')
-@login_required
-def preview_scheduled_post(post_id):
-    post = ScheduledPost.query.get_or_404(post_id)
-    if post.user_id != current_user.id:
-        flash('閲覧権限がありません')
-        return redirect(url_for('routes.dashboard'))
-    return render_template('preview_article.html', article=post)
 
 @routes_bp.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
 @login_required
@@ -239,7 +111,6 @@ def edit_scheduled_post(post_id):
     if post.user_id != current_user.id:
         flash('編集権限がありません')
         return redirect(url_for('routes.dashboard'))
-
     if request.method == 'POST':
         post.title = request.form['title']
         post.body = request.form['body']
@@ -249,7 +120,6 @@ def edit_scheduled_post(post_id):
         db.session.commit()
         flash('記事を更新しました')
         return redirect(url_for('routes.admin_log', site_id=post.site_id))
-
     return render_template('edit_article.html', post=post)
 
 @routes_bp.route('/delete_post/<int:post_id>')
@@ -259,7 +129,6 @@ def delete_scheduled_post(post_id):
     if post.user_id != current_user.id:
         flash('削除権限がありません')
         return redirect(url_for('routes.dashboard'))
-
     db.session.delete(post)
     db.session.commit()
     flash('記事を削除しました')
@@ -289,7 +158,67 @@ def publish_scheduled_now(post_id):
 
     return redirect(url_for('routes.admin_log', site_id=post.site_id))
 
-# ✅ 記事生成停止
+@routes_bp.route('/prompt-templates', methods=['GET', 'POST'])
+@login_required
+def prompt_templates():
+    form = PromptTemplateForm()
+    if form.validate_on_submit():
+        genre = form.genre.data.strip()
+        title_prompt = form.title_prompt.data.strip()
+        body_prompt = form.body_prompt.data.strip()
+        if "{{keyword}}" not in title_prompt:
+            title_prompt = "{{keyword}}\n\n" + title_prompt
+        if "{{title}}" not in body_prompt:
+            body_prompt = "{{title}}\n\n" + body_prompt
+        template = PromptTemplate(
+            genre=genre,
+            title_prompt=title_prompt,
+            body_prompt=body_prompt,
+            user_id=current_user.id
+        )
+        db.session.add(template)
+        db.session.commit()
+        flash("テンプレートを保存しました", "success")
+        return redirect(url_for('routes.prompt_templates'))
+    templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
+    return render_template('prompt_templates.html', form=form, prompt_templates=templates)
+
+@routes_bp.route('/prompt-templates/delete/<int:template_id>', methods=['POST'])
+@login_required
+def delete_prompt_template(template_id):
+    template = PromptTemplate.query.get_or_404(template_id)
+    if template.user_id != current_user.id:
+        flash('削除権限がありません')
+        return redirect(url_for('routes.prompt_templates'))
+    db.session.delete(template)
+    db.session.commit()
+    flash('テンプレートを削除しました')
+    return redirect(url_for('routes.prompt_templates'))
+
+@routes_bp.route('/')
+def index():
+    return redirect(url_for('auth.login'))
+
+@routes_bp.route('/add-site', methods=['GET', 'POST'], endpoint='add_site')
+@login_required
+def add_site():
+    form = AddSiteForm()
+    if form.validate_on_submit():
+        site_url = form.site_url.data.strip()
+        wp_username = form.wp_username.data.strip()
+        wp_app_password = form.wp_app_password.data.strip()
+        new_site = Site(
+            site_url=site_url,
+            wp_username=wp_username,
+            wp_app_password=wp_app_password,
+            user_id=current_user.id
+        )
+        db.session.add(new_site)
+        db.session.commit()
+        flash('サイトを追加しました。')
+        return redirect(url_for('routes.dashboard'))
+    return render_template('add_site.html', form=form)
+
 @routes_bp.route('/stop_generation', methods=['POST'])
 @login_required
 def stop_generation():

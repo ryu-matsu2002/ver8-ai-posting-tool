@@ -6,25 +6,25 @@ import re
 
 def clean_query(query):
     """
-    Pixabay用クエリの調整：引用符や記号などPixabayが受け入れない文字を除去
+    Pixabay用クエリの整形：
+    記号・全角文字・番号などを除去し、検索に適した形へ変換。
     """
     query = query.strip().lower()
-    query = re.sub(r'[\"\'\(\)\[\]\{\}:;]', '', query)  # 記号除去
-    query = re.sub(r'[。、，・！!？?\-＝＝…]', '', query)  # 全角記号も除去
-    query = re.sub(r'\d+\.', '', query)  # 「1. keyword」など番号除去
-    query = re.sub(r'[^\w\s]', '', query)  # 英数字・空白以外を削除
-    query = re.sub(r'\s+', ' ', query)  # 多重スペースを1つに
-
-    # 英単語3語以内に制限
+    query = re.sub(r'[\"\'\(\)\[\]\{\}:;]', '', query)       # 記号除去
+    query = re.sub(r'[。、，・！!？?\-＝＝…]', '', query)     # 全角記号除去
+    query = re.sub(r'\d+\.', '', query)                      # 番号（1. など）除去
+    query = re.sub(r'[^\w\s]', '', query)                    # 英数字・空白以外除去
+    query = re.sub(r'\s+', ' ', query)                       # 複数スペースを1つに
     words = query.split()
-    query = '+'.join(words[:3])
+    query = '+'.join(words[:3])                              # 3語まで
 
-    return query[:100]  # 長すぎる検索語は100文字でカット
-
+    return query[:100]  # 文字数制限（Pixabay推奨）
 
 def search_images(query, num_images=2):
     """
-    Pixabayから画像URLを取得（整形済みクエリ使用）
+    Pixabay APIを使って画像URLリストを返す。
+    - query: 日本語または英語の検索語（英語推奨）
+    - num_images: 必要な画像枚数（最大3程度）
     """
     PIXABAY_API_KEY = current_app.config.get('PIXABAY_API_KEY')
     PIXABAY_API_URL = "https://pixabay.com/api/"
@@ -41,7 +41,7 @@ def search_images(query, num_images=2):
         'image_type': 'photo',
         'per_page': num_images,
         'safesearch': 'true',
-        'lang': 'en',
+        'lang': 'en'
     }
 
     try:
@@ -54,7 +54,7 @@ def search_images(query, num_images=2):
         image_urls = [hit['webformatURL'] for hit in data.get('hits', [])]
 
         if not image_urls:
-            print(f"⚠️ 画像が見つかりませんでした: {clean_kw}")
+            print(f"⚠️ 画像が見つかりませんでした（検索語: {clean_kw}）")
 
         return image_urls
 

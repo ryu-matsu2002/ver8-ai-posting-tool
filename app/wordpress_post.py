@@ -7,7 +7,7 @@ from datetime import datetime
 
 def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
     """
-    画像URLをWordPressにアップロードし、メディアIDを返す
+    画像URLをWordPressにアップロードし、media IDを取得
     """
     try:
         response_img = requests.get(image_url, timeout=10)
@@ -36,27 +36,16 @@ def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
         else:
             print(f"❌ 画像アップロード失敗: {response.status_code}")
             print("📄 レスポンス内容:", response.text)
-
-            log_entry = (
-                f"[{datetime.utcnow()}] 画像アップロード失敗\n"
-                f"画像URL: {image_url}\n"
-                f"サイト: {site_url}\n"
-                f"ステータス: {response.status_code}\n"
-                f"レスポンス: {response.text}\n\n"
-            )
-            with open("wp_post_errors.log", "a", encoding="utf-8") as log_file:
-                log_file.write(log_entry)
-
+            log_upload_error(site_url, image_url, response)
             return None
 
     except Exception as e:
         print(f"❌ 画像アップロード中に例外発生: {e}")
         return None
 
-
-def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, images):
+def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, images=None):
     """
-    WordPressへ記事投稿（アイキャッチ画像含む）
+    WordPressへ記事を投稿（オプションでアイキャッチ画像含む）
     """
     token = base64.b64encode(f"{wp_username}:{wp_app_password}".encode()).decode('utf-8')
     headers = {
@@ -65,7 +54,6 @@ def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, im
         'User-Agent': 'Mozilla/5.0 (compatible; AI-Posting-Bot/1.0)'
     }
 
-    # アイキャッチ画像のID取得
     featured_image_id = None
     if images and images[0]:
         featured_image_id = upload_featured_image(site_url, wp_username, wp_app_password, images[0])
@@ -92,19 +80,31 @@ def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, im
         else:
             print(f"❌ 投稿失敗: {response.status_code}")
             print("📄 レスポンス内容:", response.text)
-
-            log_entry = (
-                f"[{datetime.utcnow()}] 投稿失敗\n"
-                f"サイト: {site_url}\n"
-                f"タイトル: {title}\n"
-                f"ステータス: {response.status_code}\n"
-                f"レスポンス: {response.text}\n\n"
-            )
-            with open("wp_post_errors.log", "a", encoding="utf-8") as log_file:
-                log_file.write(log_entry)
-
+            log_post_error(site_url, title, response)
             return False
 
     except Exception as e:
         print(f"❌ 投稿処理中に例外発生: {e}")
         return False
+
+def log_upload_error(site_url, image_url, response):
+    log_entry = (
+        f"[{datetime.utcnow()}] 画像アップロード失敗\n"
+        f"画像URL: {image_url}\n"
+        f"サイト: {site_url}\n"
+        f"ステータス: {response.status_code}\n"
+        f"レスポンス: {response.text}\n\n"
+    )
+    with open("wp_post_errors.log", "a", encoding="utf-8") as log_file:
+        log_file.write(log_entry)
+
+def log_post_error(site_url, title, response):
+    log_entry = (
+        f"[{datetime.utcnow()}] 投稿失敗\n"
+        f"サイト: {site_url}\n"
+        f"タイトル: {title}\n"
+        f"ステータス: {response.status_code}\n"
+        f"レスポンス: {response.text}\n\n"
+    )
+    with open("wp_post_errors.log", "a", encoding="utf-8") as log_file:
+        log_file.write(log_entry)
