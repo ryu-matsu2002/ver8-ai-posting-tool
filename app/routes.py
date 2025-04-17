@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from .models import db, Article, Site, ScheduledPost, PromptTemplate, GenerationControl
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dtime
 import pytz
 import random
 from .wordpress_post import post_to_wordpress
@@ -49,13 +49,13 @@ def auto_post():
 
         schedule_times = []
         for day in range(30):
-            base = base_start + timedelta(days=day)
+            date_only = (base_start + timedelta(days=day)).date()
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
             times = []
             while len(times) < num_posts:
                 h = random.randint(10, 21)
                 m = random.randint(0, 59)
-                candidate = base.replace(hour=h, minute=m)
+                candidate = datetime.combine(date_only, dtime(hour=h, minute=m))
                 if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):
                     times.append(candidate)
             schedule_times.extend(sorted([t.astimezone(pytz.utc) for t in times]))

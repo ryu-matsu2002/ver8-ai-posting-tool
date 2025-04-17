@@ -1,209 +1,84 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>投稿ログ</title>
+{% extends "base.html" %}
+{% block title %}投稿ログ{% endblock %}
+
+{% block content %}
+<div class="main-content" style="padding: 40px; background-color: #f9f9f9; min-height: 100vh;">
+    <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 2px solid #ccc; padding-bottom: 10px;">
+        投稿ログ
+    </h1>
+
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            display: flex;
-            background-color: #f9f9f9;
-        }
-        .sidebar {
-            width: 220px;
-            background-color: #2c3e50;
-            color: white;
-            height: 100vh;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        .sidebar h2 {
-            font-size: 20px;
-            margin-bottom: 20px;
-        }
-        .sidebar a {
-            display: block;
-            color: white;
-            text-decoration: none;
-            margin: 12px 0;
-        }
-        .sidebar a:hover {
-            text-decoration: underline;
-        }
-
-        .main-content {
-            flex-grow: 1;
-            padding: 30px;
-            box-sizing: border-box;
-        }
-
-        h1 {
-            margin-bottom: 10px;
-        }
-
-        .filter-form {
-            margin-bottom: 20px;
-        }
-        .filter-form select {
-            padding: 8px;
-            font-size: 14px;
-        }
-        .filter-form button {
-            padding: 8px 14px;
-            font-size: 14px;
-        }
-
-        .summary {
-            margin-bottom: 15px;
-            font-weight: bold;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            box-shadow: 0 0 5px rgba(0,0,0,0.1);
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 12px;
-            font-size: 14px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-
-        .status-生成中 {
-            color: purple;
-            font-weight: bold;
-        }
-        .status-生成待ち {
-            color: orange;
-            font-weight: bold;
-        }
-        .status-生成完了 {
-            color: blue;
-            font-weight: bold;
-        }
-        .status-投稿済み {
-            color: green;
-            font-weight: bold;
-        }
-
-        .action-buttons a {
-            margin-right: 8px;
-            text-decoration: none;
-            color: #007BFF;
-        }
-        .action-buttons a:hover {
-            text-decoration: underline;
-        }
-
-        .generating {
-            padding: 30px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #555;
-            text-align: center;
-        }
-
-        .stop-button-form {
-            margin-bottom: 25px;
-            text-align: right;
-        }
-        .stop-button-form button {
-            background-color: crimson;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            font-weight: bold;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .stop-button-form button:hover {
-            background-color: darkred;
-        }
+        .status-purple { color: purple; font-weight: bold; padding: 12px; border: 1px solid #ddd; }
+        .status-orange { color: orange; font-weight: bold; padding: 12px; border: 1px solid #ddd; }
+        .status-blue { color: blue; font-weight: bold; padding: 12px; border: 1px solid #ddd; }
+        .status-green { color: green; font-weight: bold; padding: 12px; border: 1px solid #ddd; }
+        .status-black { color: black; font-weight: bold; padding: 12px; border: 1px solid #ddd; }
     </style>
-</head>
-<body>
 
-    <!-- ✅ 左メニュー -->
-    <div class="sidebar">
-        <h2>メニュー</h2>
-        <a href="{{ url_for('routes.dashboard') }}">ダッシュボード</a>
-        <a href="{{ url_for('routes.auto_post') }}">記事生成</a>
-        <a href="{{ url_for('routes.admin_log', site_id=site_id) }}">投稿ログ</a>
-        <a href="{{ url_for('routes.prompt_templates') }}">テンプレート管理</a>
-        <a href="{{ url_for('auth.logout') }}">ログアウト</a>
-    </div>
-
-    <!-- ✅ メインコンテンツ -->
-    <div class="main-content">
-        <h1>投稿ログ</h1>
-
-        <!-- ✅ 停止ボタン -->
-        <div class="stop-button-form">
-            <form method="POST" action="{{ url_for('routes.stop_generation') }}" onsubmit="return confirm('記事生成を停止しますか？');">
-                {{ csrf_token() }}
-                <button type="submit">🛑 記事生成を停止</button>
-            </form>
-        </div>
-
-        <!-- ✅ フィルター -->
-        <form method="GET" class="filter-form">
-            <label for="status">ステータスで絞り込み:</label>
-            <select name="status" id="status">
-                <option value="">すべて</option>
-                <option value="生成待ち" {% if filter_status == '生成待ち' %}selected{% endif %}>生成待ち</option>
-                <option value="生成中" {% if filter_status == '生成中' %}selected{% endif %}>生成中</option>
-                <option value="生成完了" {% if filter_status == '生成完了' %}selected{% endif %}>生成完了</option>
-                <option value="投稿済み" {% if filter_status == '投稿済み' %}selected{% endif %}>投稿済み</option>
-            </select>
-            <button type="submit">絞り込む</button>
+    <!-- ✅ 停止ボタン -->
+    <div style="text-align: right; margin-bottom: 20px;">
+        <form method="POST" action="{{ url_for('routes.stop_generation') }}" onsubmit="return confirm('記事生成を停止しますか？');" style="display: inline;">
+            {{ csrf_token() }}
+            <button type="submit" style="padding: 10px 20px; background-color: crimson; color: white; font-weight: bold; border: none; border-radius: 5px; cursor: pointer;">
+                🛑 記事生成を停止
+            </button>
         </form>
-
-        {% if posts %}
-            <div class="summary">記事件数: {{ posts|length }} 件</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>タイトル</th>
-                        <th>キーワード</th>
-                        <th>ステータス</th>
-                        <th>投稿予定日時（JST）</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for post in posts %}
-                    <tr>
-                        <td>{{ post.title }}</td>
-                        <td>{{ post.keyword }}</td>
-                        <td class="status-{{ post.status }}">{{ post.status }}</td>
-                        <td>
-                            {% if post.scheduled_time %}
-                                {{ post.scheduled_time.astimezone(jst).strftime('%Y-%m-%d %H:%M') }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td class="action-buttons">
-                            <a href="{{ url_for('routes.preview_scheduled_post', post_id=post.id) }}">プレビュー</a>
-                            <a href="{{ url_for('routes.edit_scheduled_post', post_id=post.id) }}">編集</a>
-                            <a href="{{ url_for('routes.delete_scheduled_post', post_id=post.id) }}" onclick="return confirm('本当に削除しますか？');">削除</a>
-                            {% if post.status != '投稿済み' %}
-                                <a href="{{ url_for('routes.publish_scheduled_now', post_id=post.id) }}">即時投稿</a>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <div class="generating">📝 まだ投稿記事がありません。キーワードを登録してください。</div>
-        {% endif %}
     </div>
-</body>
-</html>
+
+    <!-- ✅ ステータス絞り込み -->
+    <form method="GET" class="filter-form" style="margin-bottom: 30px;">
+        <label for="status" style="margin-right: 10px; font-weight: bold;">ステータスで絞り込み:</label>
+        <select name="status" id="status" style="padding: 8px; font-size: 14px;">
+            <option value="">すべて</option>
+            <option value="生成待ち" {% if filter_status == '生成待ち' %}selected{% endif %}>生成待ち</option>
+            <option value="生成中" {% if filter_status == '生成中' %}selected{% endif %}>生成中</option>
+            <option value="生成完了" {% if filter_status == '生成完了' %}selected{% endif %}>生成完了</option>
+            <option value="投稿済み" {% if filter_status == '投稿済み' %}selected{% endif %}>投稿済み</option>
+        </select>
+        <button type="submit" style="padding: 8px 16px; margin-left: 10px;">絞り込む</button>
+    </form>
+
+    {% if posts %}
+        <div style="margin-bottom: 15px; font-weight: bold;">記事件数: {{ posts|length }} 件</div>
+        <table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 0 5px rgba(0,0,0,0.1);">
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #ddd; padding: 12px;">タイトル</th>
+                    <th style="border: 1px solid #ddd; padding: 12px;">キーワード</th>
+                    <th style="border: 1px solid #ddd; padding: 12px;">ステータス</th>
+                    <th style="border: 1px solid #ddd; padding: 12px;">投稿予定日時（JST）</th>
+                    <th style="border: 1px solid #ddd; padding: 12px;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for post in posts %}
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 12px;">{{ post.title }}</td>
+                    <td style="border: 1px solid #ddd; padding: 12px;">{{ post.keyword }}</td>
+                    <td class="{{ 'status-purple' if post.status == '生成中' else 'status-orange' if post.status == '生成待ち' else 'status-blue' if post.status == '生成完了' else 'status-green' if post.status == '投稿済み' else 'status-black' }}">{{ post.status }}</td>
+                    <td style="border: 1px solid #ddd; padding: 12px;">
+                        {% if post.scheduled_time %}
+                            {{ post.scheduled_time.astimezone(jst).strftime('%Y-%m-%d %H:%M') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 12px;">
+                        <a href="{{ url_for('routes.preview_scheduled_post', post_id=post.id) }}">プレビュー</a> |
+                        <a href="{{ url_for('routes.edit_scheduled_post', post_id=post.id) }}">編集</a> |
+                        <a href="{{ url_for('routes.delete_scheduled_post', post_id=post.id) }}" onclick="return confirm('本当に削除しますか？');">削除</a>
+                        {% if post.status != '投稿済み' %}
+                            | <a href="{{ url_for('routes.publish_scheduled_now', post_id=post.id) }}">即時投稿</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div style="text-align: center; font-size: 16px; margin-top: 40px; color: #666;">
+            📝 まだ投稿記事がありません。キーワードを登録してください。
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
