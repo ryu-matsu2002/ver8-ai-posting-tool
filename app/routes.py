@@ -1,12 +1,11 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from .models import db, Article, Site, ScheduledPost, PromptTemplate, GenerationControl
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
-import threading
+import random
 from .wordpress_post import post_to_wordpress
 
-from .auto_post import generate_and_save_articles
 from .forms import AutoPostForm, AddSiteForm, PromptTemplateForm
 
 routes_bp = Blueprint('routes', __name__)
@@ -50,14 +49,50 @@ def auto_post():
             control.stop_flag = False
         db.session.commit()
 
-        app_instance = current_app._get_current_object()
-        thread = threading.Thread(
-            target=generate_and_save_articles,
-            args=(app_instance, keywords, title_prompt, body_prompt, site_id, current_user.id)
-        )
-        thread.start()
+        jst = pytz.timezone("Asia/Tokyo")
+        now = datetime.now(jst)
+        base_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-        flash("記事生成を開始しました。ログで確認できます。")
+        schedule_times = []
+        for day in range(30):
+            base = base_start + timedelta(days=day)
+            num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
+            times = []
+            while len(times) < num_posts:
+                h = random.randint(10, 21)
+                m = random.randint(0, 59)
+                candidate = base.replace(hour=h, minute=m)
+                if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):
+                    times.append(candidate)
+            schedule_times.extend(sorted([t.astimezone(pytz.utc) for t in times]))
+
+        site = Site.query.get(site_id)
+        scheduled_index = 0
+
+        for keyword in keywords:
+            article_count = random.choice([2, 3])
+            for _ in range(article_count):
+                schedule_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
+                scheduled_index += 1
+
+                post = ScheduledPost(
+                    title="生成中...",
+                    body="",
+                    keyword=keyword,
+                    featured_image=None,
+                    status="生成中",
+                    scheduled_time=schedule_time,
+                    created_at=datetime.utcnow(),
+                    site_url=site.site_url,
+                    username=site.wp_username,
+                    app_password=site.wp_app_password,
+                    user_id=current_user.id,
+                    site_id=site.id
+                )
+                db.session.add(post)
+
+        db.session.commit()
+        flash("記事キーワードを登録しました。Workerが順次処理します。")
         return redirect(url_for('routes.admin_log', site_id=site_id))
 
     return render_template('auto_post.html', form=form, sites=sites, prompt_templates=templates)
