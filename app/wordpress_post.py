@@ -35,6 +35,7 @@ def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
             return response.json().get('id')
         else:
             print(f"❌ 画像アップロード失敗: {response.status_code}")
+            response.encoding = response.apparent_encoding  # ← エンコーディングを自動検出して適用
             print("📄 レスポンス内容:", response.text)
             log_upload_error(site_url, image_url, response)
             return None
@@ -79,6 +80,7 @@ def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, im
             return True
         else:
             print(f"❌ 投稿失敗: {response.status_code}")
+            response.encoding = response.apparent_encoding  # ← エンコーディングを自動検出して適用
             print("📄 レスポンス内容:", response.text)
             log_post_error(site_url, title, response)
             return False
@@ -88,6 +90,7 @@ def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, im
         return False
 
 def log_upload_error(site_url, image_url, response):
+    response.encoding = response.apparent_encoding  # ← 念のためこちらにも
     log_entry = (
         f"[{datetime.utcnow()}] 画像アップロード失敗\n"
         f"画像URL: {image_url}\n"
@@ -99,6 +102,7 @@ def log_upload_error(site_url, image_url, response):
         log_file.write(log_entry)
 
 def log_post_error(site_url, title, response):
+    response.encoding = response.apparent_encoding  # ← 念のためこちらにも
     log_entry = (
         f"[{datetime.utcnow()}] 投稿失敗\n"
         f"サイト: {site_url}\n"
