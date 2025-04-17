@@ -1,10 +1,11 @@
-# app/scheduler.py
+# 📁 app/scheduler.py
 
 from flask_apscheduler import APScheduler
 from datetime import datetime
 import pytz
-from app.models import db, ScheduledPost
+from app.models import db, ScheduledPost, GenerationControl
 from app.wordpress_post import post_to_wordpress
+from app.article_generator import generate_article_for_post
 
 scheduler = APScheduler()
 
@@ -12,20 +13,41 @@ def init_app(app):
     scheduler.init_app(app)
     scheduler.start()
 
-    # app context 付きで scheduler 関数を呼べるようにしておく
-    @scheduler.task('interval', id='auto_post_task', seconds=60)
-    def auto_post_task():
+    @scheduler.task('interval', id='scheduled_task', seconds=60)
+    def scheduled_task():
         with app.app_context():
             try:
-                now_utc = datetime.utcnow()
+                jst = pytz.timezone("Asia/Tokyo")
+                now = datetime.now(jst)
 
-                posts = ScheduledPost.query.filter(
+                # ✅ ① 記事生成処理：生成待ちかつスケジュール時刻が過ぎている
+                generate_targets = ScheduledPost.query.filter(
+                    ScheduledPost.status == "生成待ち",
+                    ScheduledPost.scheduled_time <= now
+                ).order_by(ScheduledPost.scheduled_time).limit(3).all()
+
+                for post in generate_targets:
+                    # ユーザーが停止していないか確認
+                    control = GenerationControl.query.filter_by(user_id=post.user_id).first()
+                    if control and control.stop_flag:
+                        print(f"⏸ 生成停止中: {post.keyword}")
+                        continue
+
+                    print(f"✏️ 生成中: {post.keyword}")
+                    success = generate_article_for_post(post.id)
+                    if success:
+                        print(f"✅ 生成完了: {post.keyword}")
+                    else:
+                        print(f"❌ 生成失敗: {post.keyword}")
+
+                # ✅ ② 投稿処理：生成完了でスケジュール時刻を過ぎている
+                post_targets = ScheduledPost.query.filter(
                     ScheduledPost.status == '生成完了',
-                    ScheduledPost.scheduled_time <= now_utc
+                    ScheduledPost.scheduled_time <= now
                 ).all()
 
-                for post in posts:
-                    print(f"🔄 投稿チェック中: {post.title}（予定時刻: {post.scheduled_time}）")
+                for post in post_targets:
+                    print(f"📤 投稿チェック中: {post.title}（予定時刻: {post.scheduled_time}）")
 
                     success = post_to_wordpress(
                         site_url=post.site_url,

@@ -1,25 +1,48 @@
 import openai
 from flask import current_app
+from .models import db, ScheduledPost
 
-# OpenAI APIキーを設定（環境変数から読み込む方法もあり）
 openai.api_key = current_app.config['OPENAI_API_KEY']
 
-def generate_article(title, body_prompt):
+def generate_article_for_post(post_id):
     """
-    記事タイトルと本文プロンプトに基づいて記事を生成する関数
+    指定された投稿IDのScheduledPostに対して記事生成を行い、
+    生成された本文を保存し、ステータスを「生成完了」に更新する。
     """
-    prompt = f"タイトル: {title}\n本文: {body_prompt}\n\nこの内容に基づいてSEOに強い記事を生成してください。"
+    # 対象記事をDBから取得
+    post = ScheduledPost.query.get(post_id)
+    if not post or post.status != "生成待ち":
+        return False  # 対象がない、または状態が不適切
 
-    response = openai.Completion.create(
-        engine="gpt-4",  # GPT-4を使用
-        prompt=prompt,
-        max_tokens=2000,  # 記事の最大長（必要に応じて調整）
-        n=1,  # 1回だけ生成
-        stop=None,  # 終了トークン
-        temperature=0.7  # 出力のランダム性
-    )
+    try:
+        # ステータス更新：生成中
+        post.status = "生成中"
+        db.session.commit()
 
-    # 生成した記事の内容を取得
-    generated_article = response.choices[0].text.strip()
-    
-    return generated_article
+        # プロンプト生成
+        prompt = f"タイトル: {post.title}\n\n{post.prompt_body}\n\nこの内容に基づいてSEOに強い日本語の記事を3000文字程度で作成してください。"
+
+        # ChatGPT API呼び出し
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "あなたはSEOに詳しいプロのライターです。"},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=3000,
+            temperature=0.7
+        )
+
+        # 本文を取得し保存
+        generated_body = response.choices[0].message['content'].strip()
+        post.body = generated_body
+        post.status = "生成完了"
+        db.session.commit()
+
+        return True
+
+    except Exception as e:
+        post.status = "生成失敗"
+        db.session.commit()
+        print(f"❌ 生成エラー: {e}")
+        return False

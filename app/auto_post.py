@@ -1,7 +1,7 @@
 # 📁 app/auto_post.py
 
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dtime
 import pytz
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash
 from flask_login import login_required, current_user
@@ -25,23 +25,23 @@ def auto_post():
         body_prompt = form.body_prompt.data.strip()
         keywords = [kw.strip() for kw in form.keywords.data.strip().splitlines() if kw.strip()]
 
-        # 🔸 スケジュール生成（ランダムで30日分、1日1〜5件、10〜21時の間）
+        # 🔸 スケジュール生成（30日分、1日1〜5件、JST 10〜21時）
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst)
         base_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
         schedule_times = []
         for day in range(30):
-            base = base_start + timedelta(days=day)
+            date_only = (base_start + timedelta(days=day)).date()
             num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
             times = []
             while len(times) < num_posts:
                 h = random.randint(10, 21)
                 m = random.randint(0, 59)
-                candidate = base.replace(hour=h, minute=m)
+                candidate = jst.localize(datetime.combine(date_only, dtime(hour=h, minute=m)))
                 if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):  # 2時間間隔
                     times.append(candidate)
-            schedule_times.extend(sorted([t.astimezone(pytz.utc) for t in times]))
+            schedule_times.extend(sorted(times))  # ✅ JSTのまま保存
 
         # 🔸 対象サイト
         site = Site.query.filter_by(id=site_id, user_id=current_user.id).first()
@@ -58,7 +58,7 @@ def auto_post():
             control.stop_flag = False
         db.session.commit()
 
-        # 🔸 DB登録処理（記事生成は別プロセス）
+        # 🔸 DB登録処理（記事生成は非同期処理で対応）
         scheduled_index = 0
         for kw in keywords:
             article_count = random.choice([2, 3])
@@ -71,7 +71,7 @@ def auto_post():
                     title="生成中...",
                     body="",
                     featured_image=None,
-                    status="生成中",
+                    status="生成待ち",  # ✅ 正しく「生成待ち」に設定
                     scheduled_time=scheduled_time,
                     created_at=datetime.utcnow(),
                     site_url=site.site_url,
@@ -79,7 +79,7 @@ def auto_post():
                     app_password=site.wp_app_password,
                     user_id=current_user.id,
                     site_id=site.id,
-                    genre="",  # VER8では使用せず空でOK
+                    genre="",  # 使用しないため空文字
                     prompt_title=title_prompt,
                     prompt_body=body_prompt
                 )

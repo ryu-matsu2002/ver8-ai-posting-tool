@@ -55,7 +55,9 @@
                 <tr>
                     <td style="border: 1px solid #ddd; padding: 12px;">{{ post.title }}</td>
                     <td style="border: 1px solid #ddd; padding: 12px;">{{ post.keyword }}</td>
-                    <td class="{{ 'status-purple' if post.status == '生成中' else 'status-orange' if post.status == '生成待ち' else 'status-blue' if post.status == '生成完了' else 'status-green' if post.status == '投稿済み' else 'status-black' }}">{{ post.status }}</td>
+                    <td class="{% if post.status == '生成中' %}status-purple{% elif post.status == '生成待ち' %}status-orange{% elif post.status == '生成完了' %}status-blue{% elif post.status == '投稿済み' %}status-green{% else %}status-black{% endif %}">
+                        {{ post.status }}
+                    </td>
                     <td style="border: 1px solid #ddd; padding: 12px;">
                         {% if post.scheduled_time %}
                             {{ post.scheduled_time.astimezone(jst).strftime('%Y-%m-%d %H:%M') }}

@@ -43,6 +43,7 @@ def auto_post():
             control.stop_flag = False
         db.session.commit()
 
+        # ✅ JSTでスケジュール作成
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst)
         base_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -55,10 +56,10 @@ def auto_post():
             while len(times) < num_posts:
                 h = random.randint(10, 21)
                 m = random.randint(0, 59)
-                candidate = datetime.combine(date_only, dtime(hour=h, minute=m))
+                candidate = jst.localize(datetime.combine(date_only, dtime(hour=h, minute=m)))
                 if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):
                     times.append(candidate)
-            schedule_times.extend(sorted([t.astimezone(pytz.utc) for t in times]))
+            schedule_times.extend(sorted(times))  # ✅ UTC変換せずJSTのまま保存
 
         site = Site.query.get(site_id)
         scheduled_index = 0

@@ -49,7 +49,7 @@ class Site(db.Model):
         return f'<Site {self.site_url}>'
 
 # ---------------------
-# 記事モデル（旧）※未使用でも残しておくなら
+# 記事モデル（旧）
 # ---------------------
 class Article(db.Model):
     __tablename__ = 'articles'
@@ -79,15 +79,15 @@ class ScheduledPost(db.Model):
     title = db.Column(db.String(255), nullable=True)  # 生成前はNone可
     body = db.Column(db.Text, nullable=True)
     featured_image = db.Column(db.String(255), nullable=True)
-    status = db.Column(db.String(50), default="生成待ち")  # 🔄 初期は「生成待ち」
+    status = db.Column(db.String(50), default="生成待ち", nullable=False)  # ✅ 明示的にnullable=False
     scheduled_time = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # 🔹 プロンプト内容も保存（テンプレートの内容を保持）
+    # 🔹 プロンプト内容も保存
     prompt_title = db.Column(db.Text, nullable=True)
     prompt_body = db.Column(db.Text, nullable=True)
 
-    # WordPress情報（サイト側に紐づけ）
+    # WordPress接続情報
     site_url = db.Column(db.String(255), nullable=False)
     username = db.Column(db.String(255), nullable=False)
     app_password = db.Column(db.String(255), nullable=False)
