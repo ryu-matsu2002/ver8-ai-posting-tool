@@ -1,13 +1,32 @@
-# render.yaml
+# 📄 render.yaml（Webサービス + Worker構成）
 
 services:
   - type: web
     name: ai-posting-tool
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn run:app  # ✅ run.py を使うように修正
+    startCommand: gunicorn run:app
     envVars:
       - key: FLASK_ENV
         value: production
       - key: DATABASE_URL
-        value: postgresql://ver8_ai_posting_db_m8ta_user:vaoyFQMSZzjm3wulFIlZXo77qwkgZibg@dpg-cvti4pbuibrs73dktvl0-a.singapore-postgres.render.com/ver8_ai_posting_db_m8ta  # ✅ 正しいURLに差し替え
+        value: postgresql://ver8_ai_posting_db_m8ta_user:vaoyFQMSZzjm3wulFIlZXo77qwkgZibg@dpg-cvti4pbuibrs73dktvl0-a.singapore-postgres.render.com/ver8_ai_posting_db_m8ta
+      - key: OPENAI_API_KEY
+        value: your_openai_api_key_here
+      - key: PIXABAY_API_KEY
+        value: your_pixabay_api_key_here
+
+  - type: worker
+    name: ai-posting-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app/article_worker.py
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: DATABASE_URL
+        value: postgresql://ver8_ai_posting_db_m8ta_user:vaoyFQMSZzjm3wulFIlZXo77qwkgZibg@dpg-cvti4pbuibrs73dktvl0-a.singapore-postgres.render.com/ver8_ai_posting_db_m8ta
+      - key: OPENAI_API_KEY
+        value: your_openai_api_key_here
+      - key: PIXABAY_API_KEY
+        value: your_pixabay_api_key_here
