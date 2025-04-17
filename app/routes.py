@@ -104,6 +104,15 @@ def admin_log(site_id):
     jst = pytz.timezone("Asia/Tokyo")
     return render_template('admin_log.html', posts=posts, jst=jst, site_id=site_id, filter_status=filter_status)
 
+@routes_bp.route('/preview_post/<int:post_id>', endpoint='preview_scheduled_post')
+@login_required
+def preview_scheduled_post(post_id):
+    post = ScheduledPost.query.get_or_404(post_id)
+    if post.user_id != current_user.id:
+        flash('閲覧権限がありません')
+        return redirect(url_for('routes.dashboard'))
+    return render_template('preview_article.html', article=post)
+
 @routes_bp.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
 @login_required
 def edit_scheduled_post(post_id):
