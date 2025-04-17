@@ -3,43 +3,57 @@
 {% block title %}記事生成＆自動投稿{% endblock %}
 
 {% block content %}
-<div class="main-content" style="padding: 40px; background-color: #f9f9f9; min-height: 100vh;">
-    <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 2px solid #ccc; padding-bottom: 10px;">
-        自動投稿：キーワード＆テンプレート選択
-    </h1>
+<div style="display: flex;">
 
-    <form method="POST" style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 20px;">
-        {{ form.hidden_tag() }}
+    <!-- ✅ 左サイドバー（青色に変更） -->
+    <div class="sidebar" style="width: 220px; background-color: #0056b3; color: white; height: 100vh; padding: 20px; box-sizing: border-box;">
+        <h2 style="font-size: 18px; margin-bottom: 20px;">メニュー</h2>
+        <a href="{{ url_for('routes.dashboard') }}" style="color: white; text-decoration: none; display: block; margin-bottom: 12px;">ダッシュボード</a>
+        <a href="{{ url_for('routes.auto_post') }}" style="color: white; text-decoration: none; display: block; margin-bottom: 12px;">記事生成</a>
+        <a href="{{ url_for('routes.prompt_templates') }}" style="color: white; text-decoration: none; display: block; margin-bottom: 12px;">テンプレート管理</a>
+        <a href="{{ url_for('routes.add_site') }}" style="color: white; text-decoration: none; display: block; margin-bottom: 12px;">サイト追加</a>
+        <a href="{{ url_for('auth.logout') }}" style="color: white; text-decoration: none; display: block; margin-bottom: 12px;">ログアウト</a>
+    </div>
 
-        <div>
-            <label for="site_id" style="font-weight: bold; display: block; margin-bottom: 5px;">投稿先サイト</label>
-            {{ form.site_id(class="form-control", style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;") }}
-            {% if form.site_id.errors %}
-                <div style="color: red; margin-top: 5px;">{{ form.site_id.errors[0] }}</div>
-            {% endif %}
-        </div>
+    <!-- ✅ メインコンテンツ -->
+    <div class="main-content" style="flex-grow: 1; padding: 40px; background-color: #f9f9f9; min-height: 100vh;">
+        <h1 style="font-size: 28px; margin-bottom: 25px; border-bottom: 2px solid #ccc; padding-bottom: 10px;">
+            自動投稿：キーワード＆テンプレート選択
+        </h1>
 
-        <div>
-            <label for="keywords" style="font-weight: bold; display: block; margin-bottom: 5px;">キーワード一覧（最大40件／1行1キーワード）</label>
-            {{ form.keywords(rows=6, class="form-control", style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;", placeholder="例：温泉旅行\n家族連れ\n格安ホテル") }}
-            {% if form.keywords.errors %}
-                <div style="color: red; margin-top: 5px;">{{ form.keywords.errors[0] }}</div>
-            {% endif %}
-        </div>
+        <form method="POST" style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 20px;">
+            {{ form.hidden_tag() }}
 
-        <div>
-            <label for="template_id" style="font-weight: bold; display: block; margin-bottom: 5px;">テンプレート</label>
-            {{ form.template_id(class="form-control", style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;") }}
-            {% if form.template_id.errors %}
-                <div style="color: red; margin-top: 5px;">{{ form.template_id.errors[0] }}</div>
-            {% endif %}
-        </div>
+            <div>
+                <label for="site_id" style="font-weight: bold; display: block; margin-bottom: 5px;">投稿先サイト</label>
+                {{ form.site_id(class="form-control", style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;") }}
+                {% if form.site_id.errors %}
+                    <div style="color: red; margin-top: 5px;">{{ form.site_id.errors[0] }}</div>
+                {% endif %}
+            </div>
 
-        <div style="text-align: center;">
-            <button type="submit" style="padding: 12px 30px; background-color: #007bff; color: white; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;">
-                記事生成を開始
-            </button>
-        </div>
-    </form>
+            <div>
+                <label for="keywords" style="font-weight: bold; display: block; margin-bottom: 5px;">キーワード一覧（最大40件／1行1キーワード）</label>
+                {{ form.keywords(rows=6, class="form-control", style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;", placeholder="例：温泉旅行\n家族連れ\n格安ホテル") }}
+                {% if form.keywords.errors %}
+                    <div style="color: red; margin-top: 5px;">{{ form.keywords.errors[0] }}</div>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="template_id" style="font-weight: bold; display: block; margin-bottom: 5px;">テンプレート</label>
+                {{ form.template_id(class="form-control", style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;") }}
+                {% if form.template_id.errors %}
+                    <div style="color: red; margin-top: 5px;">{{ form.template_id.errors[0] }}</div>
+                {% endif %}
+            </div>
+
+            <div style="text-align: center;">
+                <button type="submit" style="padding: 12px 30px; background-color: #007bff; color: white; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;">
+                    記事生成を開始
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}
