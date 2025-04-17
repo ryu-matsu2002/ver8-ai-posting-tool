@@ -69,15 +69,28 @@
             border: 1px solid #ddd;
             padding: 12px;
             font-size: 14px;
+            text-align: left;
         }
         th {
             background-color: #f2f2f2;
         }
 
-        .status-生成中 { color: purple; font-weight: bold; }
-        .status-生成待ち { color: orange; font-weight: bold; }
-        .status-生成完了 { color: blue; font-weight: bold; }
-        .status-投稿済み { color: green; font-weight: bold; }
+        .status-生成中 {
+            color: purple;
+            font-weight: bold;
+        }
+        .status-生成待ち {
+            color: orange;
+            font-weight: bold;
+        }
+        .status-生成完了 {
+            color: blue;
+            font-weight: bold;
+        }
+        .status-投稿済み {
+            color: green;
+            font-weight: bold;
+        }
 
         .action-buttons a {
             margin-right: 8px;
@@ -133,10 +146,12 @@
         <!-- ✅ 停止ボタン -->
         <div class="stop-button-form">
             <form method="POST" action="{{ url_for('routes.stop_generation') }}" onsubmit="return confirm('記事生成を停止しますか？');">
+                {{ csrf_token() }}
                 <button type="submit">🛑 記事生成を停止</button>
             </form>
         </div>
 
+        <!-- ✅ フィルター -->
         <form method="GET" class="filter-form">
             <label for="status">ステータスで絞り込み:</label>
             <select name="status" id="status">
