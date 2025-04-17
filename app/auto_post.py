@@ -21,16 +21,6 @@ load_dotenv()
 auto_post_bp = Blueprint("auto_post", __name__)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-title_base_prompt = """以下のキーワードに対して質問形式のSEOタイトルを1つ考えてください：
-キーワード：「{{keyword}}」"""
-
-body_base_prompt = """🔧執筆ガイド（参考ルール）
-- 問題提起 → 共感 → 解決策
-- 読者は「あなた」呼び（皆さん禁止）
-- 敬語、親友に語るように
-- 段落内改行なし、段落間に2行空ける
-- 見出し（hタグ）で構成整理"""
-
 def enhance_h2_tags(content):
     return re.sub(r'(<h2.*?>)', r'\1<span style="font-size: 1.5em; font-weight: bold;">', content).replace("</h2>", "</span></h2>")
 
@@ -71,7 +61,6 @@ def process_article(app, keyword, title_prompt, body_prompt, schedule_time, site
             return
 
         try:
-            # 仮保存
             pre_post = ScheduledPost(
                 title="生成中...",
                 body="",
@@ -89,41 +78,40 @@ def process_article(app, keyword, title_prompt, body_prompt, schedule_time, site
             db.session.add(pre_post)
             db.session.commit()
 
-            # タイトル生成
-            title_input = title_base_prompt.replace("{{keyword}}", keyword.strip())
-            if title_prompt:
-                title_input += f"\n\n{title_prompt.strip()}"
-
+            # 🔹タイトル生成（プロンプトをそのまま渡す）
+            title_input = title_prompt.replace("{{keyword}}", keyword.strip()) if title_prompt else keyword
             title_res = client.chat.completions.create(
                 model="gpt-4-turbo",
-                messages=[{"role": "system", "content": "あなたはSEOの専門家です。"},
-                          {"role": "user", "content": title_input}],
+                messages=[
+                    {"role": "system", "content": "あなたはSEOの専門家です。"},
+                    {"role": "user", "content": title_input}
+                ],
                 temperature=0.7,
-                max_tokens=100
+                max_tokens=150
             )
             raw_title = title_res.choices[0].message.content.strip().split("\n")[0]
             title = clean_title(raw_title)
             print("✅ タイトル生成:", title)
 
-            # 本文生成
-            body_input = (body_prompt.strip() + "\n\n") if body_prompt else ""
-            body_input += body_base_prompt + f"\n\nタイトル：「{title}」に基づいて本文を生成してください。"
-
+            # 🔹本文生成（プロンプトをそのまま渡す）
+            body_input = body_prompt.replace("{{title}}", title) if body_prompt else f"タイトル: {title}"
             body_res = client.chat.completions.create(
                 model="gpt-4-turbo",
-                messages=[{"role": "system", "content": "あなたはSEOライターです。"},
-                          {"role": "user", "content": body_input}],
+                messages=[
+                    {"role": "system", "content": "あなたはSEOライターです。"},
+                    {"role": "user", "content": body_input}
+                ],
                 temperature=0.7,
-                max_tokens=2000
+                max_tokens=3200
             )
             content = enhance_h2_tags(body_res.choices[0].message.content.strip())
 
-            # アイキャッチ画像
+            # 🔹アイキャッチ画像（本文中に挿入はしない）
             image_kw = generate_image_keyword_from_title(title)
             image_urls = search_images(image_kw, num_images=1)
             featured_image = image_urls[0] if image_urls else None
 
-            # レコード更新
+            # 🔹更新
             pre_post.title = title
             pre_post.body = content
             pre_post.featured_image = featured_image
@@ -131,7 +119,7 @@ def process_article(app, keyword, title_prompt, body_prompt, schedule_time, site
             db.session.commit()
 
             print(f"✅ 保存完了: {title}")
-            time.sleep(random.uniform(1.0, 2.0))  # 軽量スリープ
+            time.sleep(2)
 
         except Exception as e:
             print(f"❌ 例外発生（{keyword}）: {e}")
@@ -169,10 +157,7 @@ def generate_and_save_articles(app, keywords, title_prompt, body_prompt, site_id
         for keyword in keywords:
             article_count = random.choice([2, 3])
             for _ in range(article_count):
-                if scheduled_index >= len(schedule_times):
-                    schedule_time = now + timedelta(days=1)
-                else:
-                    schedule_time = schedule_times[scheduled_index]
+                schedule_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
                 scheduled_index += 1
 
                 futures.append(executor.submit(
