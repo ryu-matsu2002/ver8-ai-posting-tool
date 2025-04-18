@@ -28,12 +28,23 @@
         </div>
 
         <div>
-            <label for="template_id" style="font-weight: bold; display: block; margin-bottom: 5px;">テンプレート</label>
+            <label for="template_id" style="font-weight: bold; display: block; margin-bottom: 5px;">プロンプトテンプレート</label>
             {{ form.template_id(class="form-control", style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;") }}
             {% if form.template_id.errors %}
                 <div style="color: red; margin-top: 5px;">{{ form.template_id.errors[0] }}</div>
             {% endif %}
         </div>
+
+        {% if form.template_id.data %}
+            <div>
+                <label for="title_prompt" style="font-weight: bold; display: block; margin-bottom: 5px;">タイトルプロンプト</label>
+                <textarea class="form-control" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" rows="6" readonly>{{ form.title_prompt.data }}</textarea>
+            </div>
+            <div>
+                <label for="body_prompt" style="font-weight: bold; display: block; margin-bottom: 5px;">本文プロンプト</label>
+                <textarea class="form-control" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" rows="6" readonly>{{ form.body_prompt.data }}</textarea>
+            </div>
+        {% endif %}
 
         <div style="text-align: center;">
             <button type="submit" style="padding: 12px 30px; background-color: #007bff; color: white; font-weight: bold; border: none; border-radius: 6px; cursor: pointer;">

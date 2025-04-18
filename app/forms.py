@@ -26,6 +26,8 @@ class AutoPostForm(FlaskForm):
     site_id = SelectField("投稿先サイト", coerce=int, validators=[DataRequired()])
     keywords = TextAreaField("キーワード一覧（1行1キーワード）", validators=[DataRequired()])
     template_id = SelectField("テンプレート", coerce=int, validators=[DataRequired()])
+    title_prompt = TextAreaField("タイトル生成プロンプト", validators=[DataRequired()])  # 新しく追加
+    body_prompt = TextAreaField("本文生成プロンプト", validators=[DataRequired()])  # 新しく追加
     submit = SubmitField("記事生成を開始")
 
 # ✅ サイト追加フォーム（WordPress接続情報）

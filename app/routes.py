@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, time as dtime
 import pytz
 import random
 from .wordpress_post import post_to_wordpress
-from .forms import AddSiteForm, PromptTemplateForm, AutoPostForm
+from .forms import AddSiteForm, PromptTemplateForm, AutoPostForm  # AutoPostFormは削除しない
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -36,7 +36,6 @@ def preview_scheduled_post(post_id):
         return redirect(url_for('routes.dashboard'))
     return render_template('preview_article.html', article=post)
 
-# /auto-postルートを再追加
 @routes_bp.route('/auto-post', methods=['GET', 'POST'])
 @login_required
 def auto_post():
@@ -51,14 +50,19 @@ def auto_post():
     if form.validate_on_submit():
         # 入力されたデータを取得
         site_id = form.site_id.data
-        title_prompt = form.title_prompt.data.strip()
-        body_prompt = form.body_prompt.data.strip()
+        template_id = form.template_id.data
         keywords = [kw.strip() for kw in form.keywords.data.strip().splitlines() if kw.strip()]
 
+        # プロンプト情報を取得
+        selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
+
         # プロンプトが空でないか確認
-        if not title_prompt or not body_prompt:
-            flash("タイトルと本文のプロンプトは必須です。", "error")
+        if not selected_template or not selected_template.title_prompt or not selected_template.body_prompt:
+            flash("選択したテンプレートにプロンプト情報が不足しています", "error")
             return redirect(url_for("routes.auto_post"))
+
+        title_prompt = selected_template.title_prompt
+        body_prompt = selected_template.body_prompt
 
         # スケジュール生成（30日分、1日1〜5件、JST 10〜21時）
         jst = pytz.timezone("Asia/Tokyo")
@@ -126,6 +130,7 @@ def auto_post():
 
     return render_template("auto_post.html", form=form, sites=sites, prompt_templates=templates)
 
+
 @routes_bp.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
 @login_required
 def edit_scheduled_post(post_id):
@@ -143,7 +148,6 @@ def edit_scheduled_post(post_id):
         flash('記事を更新しました')
         return redirect(url_for('routes.admin_log', site_id=post.site_id))
     return render_template('edit_article.html', post=post)
-
 
 @routes_bp.route('/delete_post/<int:post_id>')
 @login_required
