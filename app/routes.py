@@ -56,7 +56,8 @@ def auto_post():
             while len(times) < num_posts:
                 h = random.randint(10, 21)
                 m = random.randint(0, 59)
-                candidate = jst.localize(datetime.combine(date_only, dtime(hour=h, minute=m)))
+                candidate = datetime.combine(date_only, dtime(hour=h, minute=m))
+                candidate = jst.localize(candidate.replace(tzinfo=None))
                 if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):
                     times.append(candidate)
             schedule_times.extend(sorted(times))
