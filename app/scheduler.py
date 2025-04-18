@@ -15,27 +15,30 @@ def init_app(app):
     def scheduled_task():
         with app.app_context():
             try:
+                # 現在のUTC時間とJST時間を取得
                 now_utc = datetime.utcnow()
                 now_jst = pytz.timezone('Asia/Tokyo').localize(datetime.now())  # JST時刻に変換
 
                 # ✅ ① 記事生成ステータスを「生成中」に変更（workerが処理）
                 generate_targets = ScheduledPost.query.filter(
-                    ScheduledPost.status == "生成待ち",
-                    ScheduledPost.scheduled_time <= now_utc
-                ).order_by(ScheduledPost.scheduled_time).limit(3).all()
+                    ScheduledPost.status == "生成待ち",  # 生成待ちの状態
+                    ScheduledPost.scheduled_time <= now_utc  # 記事が生成可能な時間になったもの
+                ).order_by(ScheduledPost.scheduled_time).limit(3).all()  # 最初の3件を処理
 
                 for post in generate_targets:
                     try:
+                        # 生成停止フラグの確認
                         control = GenerationControl.query.filter_by(user_id=post.user_id).first()
                         if control and control.stop_flag:
                             print(f"⏸ 停止フラグ中: {post.keyword}")
                             continue
 
+                        # ステータスを「生成中」に更新
                         print(f"🔁 ステータス変更 → 生成中: {post.keyword}")
                         post.status = "生成中"
                         db.session.commit()
 
-                        # 生成処理を非同期で処理する方法（`generate_article_for_post` を実行）
+                        # 生成処理を非同期で実行（`generate_article_for_post` を実行）
                         success = generate_article_for_post(post)
 
                         if success:
@@ -50,14 +53,15 @@ def init_app(app):
 
                 # ✅ ② 投稿処理（投稿失敗を除外）
                 post_targets = ScheduledPost.query.filter(
-                    ScheduledPost.status == "生成完了",
-                    ScheduledPost.scheduled_time <= now_jst
+                    ScheduledPost.status == "生成完了",  # 生成完了の状態
+                    ScheduledPost.scheduled_time <= now_jst  # 投稿予定時刻が過ぎたもの
                 ).filter(ScheduledPost.status != "投稿失敗").all()
 
                 for post in post_targets:
                     try:
                         print(f"📤 投稿処理中: {post.title}（予定: {post.scheduled_time}）")
 
+                        # 投稿処理
                         success = post_to_wordpress(
                             site_url=post.site_url,
                             wp_username=post.username,
@@ -72,7 +76,7 @@ def init_app(app):
                             db.session.commit()
                             print(f"✅ 投稿成功: {post.title}")
                         else:
-                            post.status = "投稿失敗"  # 🔴 失敗記録
+                            post.status = "投稿失敗"  # 🔴 投稿失敗記録
                             db.session.commit()
                             print(f"❌ 投稿失敗: {post.title}")
 

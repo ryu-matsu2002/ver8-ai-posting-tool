@@ -130,6 +130,8 @@ def auto_post():
 
         db.session.commit()
         flash("✅ キーワードをもとに記事スケジュールを保存しました。生成処理が開始されます。", "success")
+        
+        # リダイレクト処理を修正
         return redirect(url_for("routes.admin_log", site_id=site.id))
 
     return render_template("auto_post.html", form=form, sites=sites, prompt_templates=templates, title_prompt=title_prompt, body_prompt=body_prompt)

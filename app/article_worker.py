@@ -1,5 +1,3 @@
-# 📄 app/article_worker.py
-
 import os
 import sys
 import time
@@ -35,10 +33,13 @@ Pixabayで画像を探すのに最適な英語の2〜3語の検索キーワー�
     try:
         response = client.chat.completions.create(
             model="gpt-4-turbo",
-            messages=[
-                {"role": "system", "content": "あなたはPixabay用の画像検索キーワード生成の専門家です。"},
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{
+                "role": "system", 
+                "content": "あなたはPixabay用の画像検索キーワード生成の専門家です。"
+            }, {
+                "role": "user", 
+                "content": prompt
+            }],
             temperature=0.5,
             max_tokens=50
         )
@@ -63,12 +64,13 @@ def run_worker():
             try:
                 print(f"📝 生成処理開始: {post.keyword}")
 
+                # 停止フラグを確認
                 control = GenerationControl.query.filter_by(user_id=post.user_id).first()
                 if control and control.stop_flag:
                     print("🛑 停止フラグ検出 → スキップ")
                     continue
 
-                # 🔍 プロンプト未設定チェック
+                # プロンプト未設定チェック
                 if not post.prompt_title or not post.prompt_body:
                     print(f"⚠️ プロンプト未設定（post_id={post.id}）→ スキップ")
                     post.status = "生成失敗"
@@ -79,10 +81,13 @@ def run_worker():
                 title_prompt = post.prompt_title.replace("{{keyword}}", post.keyword)
                 title_res = client.chat.completions.create(
                     model="gpt-4-turbo",
-                    messages=[
-                        {"role": "system", "content": "あなたはSEOの専門家です。"},
-                        {"role": "user", "content": title_prompt}
-                    ],
+                    messages=[{
+                        "role": "system", 
+                        "content": "あなたはSEOの専門家です。"
+                    }, {
+                        "role": "user", 
+                        "content": title_prompt
+                    }],
                     temperature=0.7,
                     max_tokens=150
                 )
@@ -94,10 +99,13 @@ def run_worker():
                 body_prompt = post.prompt_body.replace("{{title}}", title)
                 body_res = client.chat.completions.create(
                     model="gpt-4-turbo",
-                    messages=[
-                        {"role": "system", "content": "あなたはSEOライターです。"},
-                        {"role": "user", "content": body_prompt}
-                    ],
+                    messages=[{
+                        "role": "system", 
+                        "content": "あなたはSEOライターです。"
+                    }, {
+                        "role": "user", 
+                        "content": body_prompt
+                    }],
                     temperature=0.7,
                     max_tokens=3200
                 )

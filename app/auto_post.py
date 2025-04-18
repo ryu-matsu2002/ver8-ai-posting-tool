@@ -16,6 +16,15 @@ def auto_post():
     sites = Site.query.filter_by(user_id=current_user.id).all()
     form.site_id.choices = [(site.id, site.site_url) for site in sites]
 
+    title_prompt = ''
+    body_prompt = ''
+
+    if form.template_id.data:
+        selected_template = PromptTemplate.query.get(form.template_id.data)
+        if selected_template:
+            title_prompt = selected_template.title_prompt
+            body_prompt = selected_template.body_prompt
+
     if form.validate_on_submit():
         # 🔹 入力データの取得
         site_id = form.site_id.data
@@ -26,7 +35,7 @@ def auto_post():
         # 🔸 プロンプトが空でないか確認
         if not title_prompt or not body_prompt:
             flash("タイトルと本文のプロンプトは必須です。", "error")
-            return redirect(url_for("routes.auto_post"))
+            return redirect(url_for("auto_post.auto_post"))
 
         # 🔸 スケジュール生成（30日分、1日1〜5件、JST 10〜21時）
         jst = pytz.timezone("Asia/Tokyo")
@@ -50,7 +59,7 @@ def auto_post():
         site = Site.query.filter_by(id=site_id, user_id=current_user.id).first()
         if not site:
             flash("サイト情報が見つかりません", "error")
-            return redirect(url_for("routes.auto_post"))
+            return redirect(url_for("auto_post.auto_post"))
 
         # 🔸 生成停止フラグOFF
         control = GenerationControl.query.filter_by(user_id=current_user.id).first()
@@ -91,7 +100,7 @@ def auto_post():
         db.session.commit()
         flash("✅ キーワードをもとに記事スケジュールを保存しました。生成処理が開始されます。", "success")
         
-        # 🔸 リダイレクト修正
+        # 🔸 リダイレクト処理を修正
         return redirect(url_for("routes.admin_log", site_id=site.id))
 
-    return render_template("auto_post.html", form=form, sites=sites)
+    return render_template("auto_post.html", form=form, sites=sites, title_prompt=title_prompt, body_prompt=body_prompt)
