@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, time as dtime
 import pytz
 import random
 from .wordpress_post import post_to_wordpress
-from .forms import AddSiteForm, AutoPostForm, PromptTemplateForm  # AutoPostFormをインポート
+from .forms import AddSiteForm, PromptTemplateForm  # AutoPostFormは削除
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -35,9 +35,6 @@ def preview_scheduled_post(post_id):
         flash('閲覧権限がありません')
         return redirect(url_for('routes.dashboard'))
     return render_template('preview_article.html', article=post)
-
-# /auto-postルートを削除
-# 代わりに適切なリダイレクトが行われるように修正
 
 @routes_bp.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
 @login_required
