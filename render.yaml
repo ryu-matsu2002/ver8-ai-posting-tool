@@ -1,32 +1,26 @@
-# 📄 render.yaml（Webサービス + Worker構成）
+# 📄 render.yaml（Webサービス + Worker構成 + .env対応）
 
 services:
   - type: web
     name: ai-posting-tool
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn run:app
+    startCommand: gunicorn wsgi:app
     envVars:
       - key: FLASK_ENV
         value: production
       - key: DATABASE_URL
         value: postgresql://ver8_ai_posting_db_m8ta_user:vaoyFQMSZzjm3wulFIlZXo77qwkgZibg@dpg-cvti4pbuibrs73dktvl0-a.singapore-postgres.render.com/ver8_ai_posting_db_m8ta
-      - key: OPENAI_API_KEY
-        value: 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
-      - key: PIXABAY_API_KEY
-        value: 31716383-225a92457be1dc79ee6c7fe16
+      - fromDotEnv: true  # ✅ .envから読み込む
 
   - type: worker
     name: ai-posting-worker
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python article_worker.py
+    startCommand: python app/article_worker.py
     envVars:
       - key: FLASK_ENV
         value: production
       - key: DATABASE_URL
         value: postgresql://ver8_ai_posting_db_m8ta_user:vaoyFQMSZzjm3wulFIlZXo77qwkgZibg@dpg-cvti4pbuibrs73dktvl0-a.singapore-postgres.render.com/ver8_ai_posting_db_m8ta
-      - key: OPENAI_API_KEY
-        value: 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
-      - key: PIXABAY_API_KEY
-        value: 31716383-225a92457be1dc79ee6c7fe16
+      - fromDotEnv: true  # ✅ .envから読み込む
