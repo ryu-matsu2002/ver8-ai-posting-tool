@@ -1,12 +1,16 @@
 # 📄 app/article_worker.py
 
 import os
+import sys
 import time
 import re
 import traceback
 from datetime import datetime
 import pytz
 from openai import OpenAI
+
+# 🔧 Render環境対応のパス追加（← 重要）
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app import create_app
 from app.models import db, ScheduledPost, GenerationControl
