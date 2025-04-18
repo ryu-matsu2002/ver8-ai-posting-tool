@@ -1,7 +1,5 @@
-# 📁 app/scheduler.py
-
 from flask_apscheduler import APScheduler
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from app.models import db, ScheduledPost, GenerationControl
 from app.wordpress_post import post_to_wordpress
@@ -18,6 +16,7 @@ def init_app(app):
         with app.app_context():
             try:
                 now_utc = datetime.utcnow()
+                now_jst = pytz.timezone('Asia/Tokyo').localize(datetime.now())  # JST時刻に変換
 
                 # ✅ ① 記事生成ステータスを「生成中」に変更（workerが処理）
                 generate_targets = ScheduledPost.query.filter(
@@ -36,6 +35,15 @@ def init_app(app):
                         post.status = "生成中"
                         db.session.commit()
 
+                        # 生成処理を非同期で処理する方法（`generate_article_for_post` を実行）
+                        success = generate_article_for_post(post)
+
+                        if success:
+                            post.status = "生成完了"
+                        else:
+                            post.status = "生成失敗"
+                        db.session.commit()
+
                     except Exception as e:
                         print(f"❌ ステータス更新エラー: {post.id} → {e}")
                         db.session.rollback()
@@ -43,7 +51,7 @@ def init_app(app):
                 # ✅ ② 投稿処理（投稿失敗を除外）
                 post_targets = ScheduledPost.query.filter(
                     ScheduledPost.status == "生成完了",
-                    ScheduledPost.scheduled_time <= now_utc
+                    ScheduledPost.scheduled_time <= now_jst
                 ).filter(ScheduledPost.status != "投稿失敗").all()
 
                 for post in post_targets:
