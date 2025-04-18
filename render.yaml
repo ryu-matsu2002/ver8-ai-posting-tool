@@ -1,10 +1,8 @@
-# 📄 render.yaml（機密除去済 + .env対応）
-
 services:
   - type: web
     name: ai-posting-tool
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: cd app && pip install -r ../requirements.txt
     startCommand: gunicorn wsgi:app
     envVars:
       - fromDotEnv: true
@@ -12,7 +10,7 @@ services:
   - type: worker
     name: ai-posting-worker
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python app/article_worker.py  # ← 🔥ここが重要
+    buildCommand: cd app && pip install -r ../requirements.txt
+    startCommand: python app/article_worker.py  # ←このままでOK
     envVars:
       - fromDotEnv: true
