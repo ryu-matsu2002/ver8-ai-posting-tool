@@ -1,5 +1,3 @@
-# 📁 app/auto_post.py
-
 import random
 from datetime import datetime, timedelta, time as dtime
 import pytz
@@ -24,6 +22,11 @@ def auto_post():
         title_prompt = form.title_prompt.data.strip()
         body_prompt = form.body_prompt.data.strip()
         keywords = [kw.strip() for kw in form.keywords.data.strip().splitlines() if kw.strip()]
+
+        # 🔸 プロンプトが空でないか確認
+        if not title_prompt or not body_prompt:
+            flash("タイトルと本文のプロンプトは必須です。", "error")
+            return redirect(url_for("routes.auto_post"))
 
         # 🔸 スケジュール生成（30日分、1日1〜5件、JST 10〜21時）
         jst = pytz.timezone("Asia/Tokyo")
