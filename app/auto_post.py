@@ -16,19 +16,23 @@ def auto_post():
     sites = Site.query.filter_by(user_id=current_user.id).all()
     form.site_id.choices = [(site.id, site.site_url) for site in sites]
 
+    # テンプレートを取得して、フォームに選択肢を渡す
+    templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
+    form.template_id.choices = [(tpl.id, tpl.genre) for tpl in templates]
+
     if form.validate_on_submit():
-        # 🔹 入力データの取得
+        # 入力データの取得
         site_id = form.site_id.data
         title_prompt = form.title_prompt.data.strip()
         body_prompt = form.body_prompt.data.strip()
         keywords = [kw.strip() for kw in form.keywords.data.strip().splitlines() if kw.strip()]
 
-        # 🔸 プロンプトが空でないか確認
+        # プロンプトが空でないか確認
         if not title_prompt or not body_prompt:
             flash("タイトルと本文のプロンプトは必須です。", "error")
             return redirect(url_for("routes.auto_post"))
 
-        # 🔸 スケジュール生成（30日分、1日1〜5件、JST 10〜21時）
+        # スケジュール生成（30日分、1日1〜5件、JST 10〜21時）
         jst = pytz.timezone("Asia/Tokyo")
         now = datetime.now(jst)
         base_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -44,15 +48,15 @@ def auto_post():
                 candidate = jst.localize(datetime.combine(date_only, dtime(hour=h, minute=m)))
                 if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):  # 2時間間隔
                     times.append(candidate)
-            schedule_times.extend(sorted(times))  # ✅ JSTのまま保存
+            schedule_times.extend(sorted(times))  # JSTのまま保存
 
-        # 🔸 対象サイト
+        # 対象サイトの確認
         site = Site.query.filter_by(id=site_id, user_id=current_user.id).first()
         if not site:
             flash("サイト情報が見つかりません", "error")
             return redirect(url_for("routes.auto_post"))
 
-        # 🔸 生成停止フラグOFF
+        # 生成停止フラグOFF
         control = GenerationControl.query.filter_by(user_id=current_user.id).first()
         if not control:
             control = GenerationControl(user_id=current_user.id, stop_flag=False)
@@ -61,7 +65,7 @@ def auto_post():
             control.stop_flag = False
         db.session.commit()
 
-        # 🔸 DB登録処理（記事生成は非同期処理で対応）
+        # DB登録処理（記事生成は非同期処理で対応）
         scheduled_index = 0
         for kw in keywords:
             article_count = random.choice([2, 3])
@@ -90,6 +94,8 @@ def auto_post():
 
         db.session.commit()
         flash("✅ キーワードをもとに記事スケジュールを保存しました。生成処理が開始されます。", "success")
+
+        # 投稿ログページにリダイレクト
         return redirect(url_for("routes.admin_log", site_id=site.id))
 
-    return render_template("auto_post.html", form=form, sites=sites)
+    return render_template("auto_post.html", form=form, sites=sites, prompt_templates=templates)
