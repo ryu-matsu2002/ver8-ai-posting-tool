@@ -20,33 +20,18 @@ def init_app(app):
                 # ✅ 現在時刻（UTCで統一）
                 now_utc = datetime.utcnow()
 
-                # ✅ ① 記事生成処理
-                generate_targets = ScheduledPost.query.filter(
+                # ✅ ① 生成待ち → 生成中 に変更する処理を追加
+                pending_posts = ScheduledPost.query.filter(
                     ScheduledPost.status == "生成待ち",
                     ScheduledPost.scheduled_time <= now_utc
-                ).order_by(ScheduledPost.scheduled_time).limit(3).all()
+                ).all()
 
-                for post in generate_targets:
-                    try:
-                        # 停止フラグチェック
-                        control = GenerationControl.query.filter_by(user_id=post.user_id).first()
-                        if control and control.stop_flag:
-                            print(f"⏸ 生成停止中: {post.keyword}")
-                            continue
+                for post in pending_posts:
+                    print(f"🔄 ステータス更新: 生成待ち → 生成中 → {post.keyword}")
+                    post.status = "生成中"
+                db.session.commit()
 
-                        print(f"✏️ 記事生成開始: {post.keyword}")
-                        success = generate_article_for_post(post.id)
-
-                        if success:
-                            print(f"✅ 生成完了: {post.title}")
-                        else:
-                            print(f"❌ 生成失敗: {post.title}")
-
-                    except Exception as e:
-                        print(f"❌ 個別生成エラー: {post.id} → {e}")
-                        db.session.rollback()
-
-                # ✅ ② 投稿処理
+                # ✅ ② 投稿処理（status = "生成完了" の記事を投稿）
                 post_targets = ScheduledPost.query.filter(
                     ScheduledPost.status == "生成完了",
                     ScheduledPost.scheduled_time <= now_utc
