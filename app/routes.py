@@ -59,7 +59,7 @@ def auto_post():
                 candidate = jst.localize(datetime.combine(date_only, dtime(hour=h, minute=m)))
                 if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):
                     times.append(candidate)
-            schedule_times.extend(sorted(times))  # ✅ UTC変換せずJSTのまま保存
+            schedule_times.extend(sorted(times))
 
         site = Site.query.get(site_id)
         scheduled_index = 0

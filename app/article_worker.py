@@ -15,7 +15,6 @@ from app.image_search import search_images
 
 # Flaskアプリ生成
 app = create_app()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # 🔧 タイトルの整形
 def clean_title(title):
@@ -26,7 +25,7 @@ def enhance_h2_tags(content):
     return re.sub(r'(<h2.*?>)', r'\1<span style="font-size: 1.5em; font-weight: bold;">', content).replace("</h2>", "</span></h2>")
 
 # 🔧 Pixabay用画像検索キーワードをタイトルから生成
-def generate_image_keyword_from_title(title):
+def generate_image_keyword_from_title(title, client):
     prompt = f"""
 以下の日本語タイトルに対して、
 Pixabayで画像を探すのに最適な英語の2～3語の検索キーワードを生成してください。
@@ -54,10 +53,11 @@ def run_worker():
     with app.app_context():
         print("🚀 Worker 実行中...")
 
-        # 現在時刻（UTC）
+        # OpenAI クライアントをアプリケーションコンテキスト内で初期化
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
         now = datetime.utcnow()
 
-        # ステータスが「生成中」の投稿を最大5件取得
         posts = ScheduledPost.query.filter_by(status="生成中").order_by(ScheduledPost.created_at).limit(5).all()
 
         if not posts:
@@ -68,15 +68,12 @@ def run_worker():
             try:
                 print(f"📝 生成処理開始：{post.keyword}")
 
-                # 停止フラグの確認
                 control = GenerationControl.query.filter_by(user_id=post.user_id).first()
                 if control and control.stop_flag:
                     print("🛑 停止フラグ検出 → スキップ")
                     continue
 
-                # ------------------
-                # 🔹 タイトル生成
-                # ------------------
+                # タイトル生成
                 title_prompt = post.prompt_title.replace("{{keyword}}", post.keyword)
                 title_res = client.chat.completions.create(
                     model="gpt-4-turbo",
@@ -91,9 +88,7 @@ def run_worker():
                 title = clean_title(raw_title)
                 print("✅ タイトル生成成功:", title)
 
-                # ------------------
-                # 🔹 本文生成
-                # ------------------
+                # 本文生成
                 body_prompt = post.prompt_body.replace("{{title}}", title)
                 body_res = client.chat.completions.create(
                     model="gpt-4-turbo",
@@ -107,17 +102,13 @@ def run_worker():
                 content = enhance_h2_tags(body_res.choices[0].message.content.strip())
                 print("✅ 本文生成成功")
 
-                # ------------------
-                # 🔹 画像検索
-                # ------------------
-                image_kw = generate_image_keyword_from_title(title)
+                # 画像検索
+                image_kw = generate_image_keyword_from_title(title, client)
                 image_urls = search_images(image_kw, num_images=1)
                 featured_image = image_urls[0] if image_urls else None
                 print("✅ 画像取得成功:", featured_image or "なし")
 
-                # ------------------
-                # 🔹 DB 更新
-                # ------------------
+                # DB 更新
                 post.title = title
                 post.body = content
                 post.featured_image = featured_image
@@ -125,14 +116,14 @@ def run_worker():
                 db.session.commit()
                 print("✅ 保存完了")
 
-                time.sleep(2)  # レート制限回避用の待機
+                time.sleep(2)
 
             except Exception as e:
                 print("❌ エラー発生:", e)
                 traceback.print_exc()
                 db.session.rollback()
 
-# 🔁 無限ループ実行
+# 🔁 無限ループ実行（Render手動起動 or ローカル起動用）
 if __name__ == "__main__":
     while True:
         run_worker()

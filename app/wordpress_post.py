@@ -5,10 +5,10 @@ import json
 import base64
 from datetime import datetime
 
+def ensure_trailing_slash(url):
+    return url if url.endswith("/") else url + "/"
+
 def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
-    """
-    画像URLをWordPressにアップロードし、media IDを取得
-    """
     try:
         response_img = requests.get(image_url, timeout=10)
         response_img.raise_for_status()
@@ -20,22 +20,19 @@ def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
             'Authorization': f'Basic {token}',
             'User-Agent': 'Mozilla/5.0 (compatible; AI-Posting-Bot/1.0)',
             'Content-Disposition': f'attachment; filename="{filename}"',
-            'Content-Type': 'image/jpeg'
+            'Content-Type': 'image/jpeg',
+            'Accept': 'application/json'  # 🔧 一部環境では必須
         }
 
-        response = requests.post(
-            f"{site_url}/wp-json/wp/v2/media",
-            headers=headers,
-            data=image_data,
-            timeout=15
-        )
+        media_url = ensure_trailing_slash(site_url) + "wp-json/wp/v2/media"
+        response = requests.post(media_url, headers=headers, data=image_data, timeout=15)
 
         if response.status_code == 201:
             print(f"✅ 画像アップロード成功: {filename}")
             return response.json().get('id')
         else:
             print(f"❌ 画像アップロード失敗: {response.status_code}")
-            response.encoding = response.apparent_encoding  # ← エンコーディングを自動検出して適用
+            response.encoding = response.apparent_encoding
             print("📄 レスポンス内容:", response.text)
             log_upload_error(site_url, image_url, response)
             return None
@@ -45,14 +42,13 @@ def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
         return None
 
 def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, images=None):
-    """
-    WordPressへ記事を投稿（オプションでアイキャッチ画像含む）
-    """
+    site_url = ensure_trailing_slash(site_url)
     token = base64.b64encode(f"{wp_username}:{wp_app_password}".encode()).decode('utf-8')
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Basic {token}',
-        'User-Agent': 'Mozilla/5.0 (compatible; AI-Posting-Bot/1.0)'
+        'User-Agent': 'Mozilla/5.0 (compatible; AI-Posting-Bot/1.0)',
+        'Accept': 'application/json'  # 🔧 403回避の補強
     }
 
     featured_image_id = None
@@ -60,7 +56,7 @@ def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, im
         featured_image_id = upload_featured_image(site_url, wp_username, wp_app_password, images[0])
 
     data = {
-        'title': title,
+        'title': title[:150],  # 🔧 タイトル制限（WP APIによっては必要）
         'content': content,
         'status': 'publish'
     }
@@ -68,19 +64,15 @@ def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, im
         data['featured_media'] = featured_image_id
 
     try:
-        response = requests.post(
-            f'{site_url}/wp-json/wp/v2/posts',
-            headers=headers,
-            data=json.dumps(data),
-            timeout=20
-        )
+        post_url = site_url + "wp-json/wp/v2/posts"
+        response = requests.post(post_url, headers=headers, data=json.dumps(data), timeout=20)
 
         if response.status_code == 201:
             print(f"✅ 投稿成功: {title}")
             return True
         else:
             print(f"❌ 投稿失敗: {response.status_code}")
-            response.encoding = response.apparent_encoding  # ← エンコーディングを自動検出して適用
+            response.encoding = response.apparent_encoding
             print("📄 レスポンス内容:", response.text)
             log_post_error(site_url, title, response)
             return False
@@ -90,7 +82,7 @@ def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, im
         return False
 
 def log_upload_error(site_url, image_url, response):
-    response.encoding = response.apparent_encoding  # ← 念のためこちらにも
+    response.encoding = response.apparent_encoding
     log_entry = (
         f"[{datetime.utcnow()}] 画像アップロード失敗\n"
         f"画像URL: {image_url}\n"
@@ -102,7 +94,7 @@ def log_upload_error(site_url, image_url, response):
         log_file.write(log_entry)
 
 def log_post_error(site_url, title, response):
-    response.encoding = response.apparent_encoding  # ← 念のためこちらにも
+    response.encoding = response.apparent_encoding
     log_entry = (
         f"[{datetime.utcnow()}] 投稿失敗\n"
         f"サイト: {site_url}\n"
