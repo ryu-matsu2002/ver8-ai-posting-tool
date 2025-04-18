@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, time as dtime
 import pytz
 import random
 from .wordpress_post import post_to_wordpress
-from .forms import AddSiteForm, PromptTemplateForm, AutoPostForm  # AutoPostFormは削除しない
+from .forms import AddSiteForm, PromptTemplateForm, AutoPostForm
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -47,22 +47,26 @@ def auto_post():
     templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
     form.template_id.choices = [(tpl.id, tpl.genre) for tpl in templates]
 
+    title_prompt = ''
+    body_prompt = ''
+
+    if form.template_id.data:
+        selected_template = PromptTemplate.query.get(form.template_id.data)
+        if selected_template:
+            title_prompt = selected_template.title_prompt
+            body_prompt = selected_template.body_prompt
+
     if form.validate_on_submit():
         # 入力されたデータを取得
         site_id = form.site_id.data
-        template_id = form.template_id.data
+        title_prompt = form.title_prompt.data.strip()
+        body_prompt = form.body_prompt.data.strip()
         keywords = [kw.strip() for kw in form.keywords.data.strip().splitlines() if kw.strip()]
 
-        # プロンプト情報を取得
-        selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
-
         # プロンプトが空でないか確認
-        if not selected_template or not selected_template.title_prompt or not selected_template.body_prompt:
-            flash("選択したテンプレートにプロンプト情報が不足しています", "error")
+        if not title_prompt or not body_prompt:
+            flash("タイトルと本文のプロンプトは必須です。", "error")
             return redirect(url_for("routes.auto_post"))
-
-        title_prompt = selected_template.title_prompt
-        body_prompt = selected_template.body_prompt
 
         # スケジュール生成（30日分、1日1〜5件、JST 10〜21時）
         jst = pytz.timezone("Asia/Tokyo")
@@ -128,8 +132,7 @@ def auto_post():
         flash("✅ キーワードをもとに記事スケジュールを保存しました。生成処理が開始されます。", "success")
         return redirect(url_for("routes.admin_log", site_id=site.id))
 
-    return render_template("auto_post.html", form=form, sites=sites, prompt_templates=templates)
-
+    return render_template("auto_post.html", form=form, sites=sites, prompt_templates=templates, title_prompt=title_prompt, body_prompt=body_prompt)
 
 @routes_bp.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
 @login_required

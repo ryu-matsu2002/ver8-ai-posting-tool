@@ -38,11 +38,11 @@
         {% if form.template_id.data %}
             <div>
                 <label for="title_prompt" style="font-weight: bold; display: block; margin-bottom: 5px;">タイトルプロンプト</label>
-                <textarea class="form-control" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" rows="6" readonly>{{ form.title_prompt.data }}</textarea>
+                <textarea class="form-control" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" rows="6" readonly>{{ title_prompt }}</textarea>
             </div>
             <div>
                 <label for="body_prompt" style="font-weight: bold; display: block; margin-bottom: 5px;">本文プロンプト</label>
-                <textarea class="form-control" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" rows="6" readonly>{{ form.body_prompt.data }}</textarea>
+                <textarea class="form-control" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;" rows="6" readonly>{{ body_prompt }}</textarea>
             </div>
         {% endif %}
 
