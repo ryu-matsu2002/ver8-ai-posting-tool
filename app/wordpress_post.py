@@ -6,9 +6,13 @@ import base64
 from datetime import datetime
 
 def ensure_trailing_slash(url):
+    """URLの末尾に / がない場合に付与"""
     return url if url.endswith("/") else url + "/"
 
 def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
+    """
+    画像URLをWordPressにアップロードし、media IDを取得
+    """
     try:
         response_img = requests.get(image_url, timeout=10)
         response_img.raise_for_status()
@@ -21,7 +25,7 @@ def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
             'User-Agent': 'Mozilla/5.0 (compatible; AI-Posting-Bot/1.0)',
             'Content-Disposition': f'attachment; filename="{filename}"',
             'Content-Type': 'image/jpeg',
-            'Accept': 'application/json'  # 🔧 一部環境では必須
+            'Accept': 'application/json'
         }
 
         media_url = ensure_trailing_slash(site_url) + "wp-json/wp/v2/media"
@@ -42,13 +46,17 @@ def upload_featured_image(site_url, wp_username, wp_app_password, image_url):
         return None
 
 def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, images=None):
+    """
+    WordPressへ記事を投稿（オプションでアイキャッチ画像含む）
+    """
     site_url = ensure_trailing_slash(site_url)
+
     token = base64.b64encode(f"{wp_username}:{wp_app_password}".encode()).decode('utf-8')
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Basic {token}',
         'User-Agent': 'Mozilla/5.0 (compatible; AI-Posting-Bot/1.0)',
-        'Accept': 'application/json'  # 🔧 403回避の補強
+        'Accept': 'application/json'
     }
 
     featured_image_id = None
@@ -56,7 +64,7 @@ def post_to_wordpress(site_url, wp_username, wp_app_password, title, content, im
         featured_image_id = upload_featured_image(site_url, wp_username, wp_app_password, images[0])
 
     data = {
-        'title': title[:150],  # 🔧 タイトル制限（WP APIによっては必要）
+        'title': title[:150],
         'content': content,
         'status': 'publish'
     }

@@ -6,7 +6,6 @@ import re
 import traceback
 from datetime import datetime
 import pytz
-from flask import current_app
 from openai import OpenAI
 
 from app import create_app
@@ -16,19 +15,19 @@ from app.image_search import search_images
 # Flaskアプリ生成
 app = create_app()
 
-# 🔧 タイトルの整形
+# 🔧 タイトル整形
 def clean_title(title):
     return re.sub(r'^[0-9\.\-ー①-⑩]+[\.\s）)]*|[「」\"]', '', title).strip()
 
-# 🔧 h2タグを強調スタイルに変換
+# 🔧 h2タグに強調スタイルを追加
 def enhance_h2_tags(content):
     return re.sub(r'(<h2.*?>)', r'\1<span style="font-size: 1.5em; font-weight: bold;">', content).replace("</h2>", "</span></h2>")
 
-# 🔧 Pixabay用画像検索キーワードをタイトルから生成
+# 🔧 Pixabay用の画像キーワード生成
 def generate_image_keyword_from_title(title, client):
     prompt = f"""
 以下の日本語タイトルに対して、
-Pixabayで画像を探すのに最適な英語の2～3語の検索キーワードを生成してください。
+Pixabayで画像を探すのに最適な英語の2〜3語の検索キーワードを生成してください。
 抽象的すぎる単語（life, business など）は避けてください。
 写真としてヒットしやすい「モノ・場所・情景・体験・風景」などを選んでください。
 
@@ -48,14 +47,11 @@ Pixabayで画像を探すのに最適な英語の2～3語の検索キーワー�
         print("❌ 画像キーワード生成エラー:", e)
         return "nature"
 
-# 🔁 生成処理ループ
+# 🔁 記事生成ワーカー処理
 def run_worker():
     with app.app_context():
         print("🚀 Worker 実行中...")
-
-        # OpenAI クライアントをアプリケーションコンテキスト内で初期化
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
         now = datetime.utcnow()
 
         posts = ScheduledPost.query.filter_by(status="生成中").order_by(ScheduledPost.created_at).limit(5).all()
@@ -66,7 +62,7 @@ def run_worker():
 
         for post in posts:
             try:
-                print(f"📝 生成処理開始：{post.keyword}")
+                print(f"📝 生成処理開始: {post.keyword}")
 
                 control = GenerationControl.query.filter_by(user_id=post.user_id).first()
                 if control and control.stop_flag:
@@ -108,7 +104,7 @@ def run_worker():
                 featured_image = image_urls[0] if image_urls else None
                 print("✅ 画像取得成功:", featured_image or "なし")
 
-                # DB 更新
+                # DB更新
                 post.title = title
                 post.body = content
                 post.featured_image = featured_image
@@ -123,7 +119,7 @@ def run_worker():
                 traceback.print_exc()
                 db.session.rollback()
 
-# 🔁 無限ループ実行（Render手動起動 or ローカル起動用）
+# 🔁 Renderでの永続ワーカー処理
 if __name__ == "__main__":
     while True:
         run_worker()
