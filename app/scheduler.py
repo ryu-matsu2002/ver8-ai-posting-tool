@@ -3,7 +3,6 @@
 from flask_apscheduler import APScheduler
 from datetime import datetime
 import pytz
-from sqlalchemy import not_
 from app.models import db, ScheduledPost, GenerationControl
 from app.wordpress_post import post_to_wordpress
 from app.article_generator import generate_article_for_post
@@ -20,7 +19,7 @@ def init_app(app):
             try:
                 now_utc = datetime.utcnow()
 
-                # ✅ ① 記事生成対象を「生成中」に変更（ワーカーで処理させる）
+                # ✅ ① 記事生成ステータスを「生成中」に変更（workerが処理）
                 generate_targets = ScheduledPost.query.filter(
                     ScheduledPost.status == "生成待ち",
                     ScheduledPost.scheduled_time <= now_utc
@@ -41,12 +40,11 @@ def init_app(app):
                         print(f"❌ ステータス更新エラー: {post.id} → {e}")
                         db.session.rollback()
 
-                # ✅ ② 投稿処理（投稿失敗したものは除外する）
+                # ✅ ② 投稿処理（投稿失敗を除外）
                 post_targets = ScheduledPost.query.filter(
                     ScheduledPost.status == "生成完了",
-                    ScheduledPost.scheduled_time <= now_utc,
-                    not_(ScheduledPost.status == "投稿失敗")
-                ).all()
+                    ScheduledPost.scheduled_time <= now_utc
+                ).filter(ScheduledPost.status != "投稿失敗").all()
 
                 for post in post_targets:
                     try:
@@ -66,11 +64,13 @@ def init_app(app):
                             db.session.commit()
                             print(f"✅ 投稿成功: {post.title}")
                         else:
-                            post.status = "投稿失敗"
+                            post.status = "投稿失敗"  # 🔴 失敗記録
                             db.session.commit()
                             print(f"❌ 投稿失敗: {post.title}")
 
                     except Exception as e:
+                        post.status = "投稿失敗"  # 🔴 例外でも失敗として記録
+                        db.session.commit()
                         print(f"❌ 投稿処理エラー: {post.id} → {e}")
                         db.session.rollback()
 

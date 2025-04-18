@@ -9,25 +9,21 @@ from datetime import datetime
 import pytz
 from openai import OpenAI
 
-# 🔧 Render環境対応のパス追加（← 重要）
+# 🔧 Render環境対応のパス追加
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app import create_app
 from app.models import db, ScheduledPost, GenerationControl
 from app.image_search import search_images
 
-# Flaskアプリ生成
 app = create_app()
 
-# 🔧 タイトル整形
 def clean_title(title):
     return re.sub(r'^[0-9\.\-ー①-⑩]+[\.\s）)]*|[「」\"]', '', title).strip()
 
-# 🔧 h2タグに強調スタイルを追加
 def enhance_h2_tags(content):
     return re.sub(r'(<h2.*?>)', r'\1<span style="font-size: 1.5em; font-weight: bold;">', content).replace("</h2>", "</span></h2>")
 
-# 🔧 Pixabay用の画像キーワード生成
 def generate_image_keyword_from_title(title, client):
     prompt = f"""
 以下の日本語タイトルに対して、
@@ -51,7 +47,6 @@ Pixabayで画像を探すのに最適な英語の2〜3語の検索キーワー�
         print("❌ 画像キーワード生成エラー:", e)
         return "nature"
 
-# 🔁 記事生成ワーカー処理
 def run_worker():
     with app.app_context():
         print("🚀 Worker 実行中...")
@@ -71,6 +66,13 @@ def run_worker():
                 control = GenerationControl.query.filter_by(user_id=post.user_id).first()
                 if control and control.stop_flag:
                     print("🛑 停止フラグ検出 → スキップ")
+                    continue
+
+                # 🔍 プロンプト未設定チェック
+                if not post.prompt_title or not post.prompt_body:
+                    print(f"⚠️ プロンプト未設定（post_id={post.id}）→ スキップ")
+                    post.status = "生成失敗"
+                    db.session.commit()
                     continue
 
                 # タイトル生成
@@ -123,7 +125,6 @@ def run_worker():
                 traceback.print_exc()
                 db.session.rollback()
 
-# 🔁 Renderでの永続ワーカー処理
 if __name__ == "__main__":
     while True:
         run_worker()

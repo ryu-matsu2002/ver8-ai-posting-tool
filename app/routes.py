@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, time as dtime
 import pytz
 import random
 from .wordpress_post import post_to_wordpress
-from .forms import AutoPostForm, AddSiteForm, PromptTemplateForm
+from .forms import AddSiteForm, PromptTemplateForm
 
 routes_bp = Blueprint('routes', __name__)
 
@@ -15,85 +15,6 @@ def dashboard():
     user_sites = Site.query.filter_by(user_id=current_user.id).all()
     user_articles = Article.query.join(Site).filter(Site.user_id == current_user.id).all()
     return render_template('dashboard.html', username=current_user.username, sites=user_sites, articles=user_articles)
-
-@routes_bp.route('/auto-post', methods=['GET', 'POST'])
-@login_required
-def auto_post():
-    form = AutoPostForm()
-    sites = Site.query.filter_by(user_id=current_user.id).all()
-    templates = PromptTemplate.query.filter_by(user_id=current_user.id).all()
-    form.site_id.choices = [(site.id, site.site_url) for site in sites]
-    form.template_id.choices = [(tpl.id, tpl.genre) for tpl in templates]
-
-    if form.validate_on_submit():
-        keywords = form.keywords.data.strip().splitlines()
-        site_id = form.site_id.data
-        template_id = form.template_id.data
-
-        selected_template = PromptTemplate.query.filter_by(id=template_id, user_id=current_user.id).first()
-        if not selected_template:
-            flash("テンプレートが見つかりません")
-            return redirect(url_for('routes.auto_post'))
-
-        control = GenerationControl.query.filter_by(user_id=current_user.id).first()
-        if not control:
-            control = GenerationControl(user_id=current_user.id, stop_flag=False)
-            db.session.add(control)
-        else:
-            control.stop_flag = False
-        db.session.commit()
-
-        # ✅ JSTでスケジュール作成
-        jst = pytz.timezone("Asia/Tokyo")
-        now = datetime.now(jst)
-        base_start = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-
-        schedule_times = []
-        for day in range(30):
-            date_only = (base_start + timedelta(days=day)).date()
-            num_posts = random.choices([1, 2, 3, 4, 5], weights=[1, 2, 4, 6, 2])[0]
-            times = []
-            while len(times) < num_posts:
-                h = random.randint(10, 21)
-                m = random.randint(0, 59)
-                candidate = datetime.combine(date_only, dtime(hour=h, minute=m))
-                candidate = jst.localize(candidate.replace(tzinfo=None))
-                if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):
-                    times.append(candidate)
-            schedule_times.extend(sorted(times))
-
-        site = Site.query.get(site_id)
-        scheduled_index = 0
-
-        for keyword in keywords:
-            article_count = random.choice([2, 3])
-            for _ in range(article_count):
-                schedule_time = schedule_times[scheduled_index] if scheduled_index < len(schedule_times) else now + timedelta(days=1)
-                scheduled_index += 1
-
-                post = ScheduledPost(
-                    title="生成中...",
-                    body="",
-                    keyword=keyword,
-                    prompt_title=selected_template.title_prompt,
-                    prompt_body=selected_template.body_prompt,
-                    featured_image=None,
-                    status="生成中",
-                    scheduled_time=schedule_time,
-                    created_at=datetime.utcnow(),
-                    site_url=site.site_url,
-                    username=site.wp_username,
-                    app_password=site.wp_app_password,
-                    user_id=current_user.id,
-                    site_id=site.id
-                )
-                db.session.add(post)
-
-        db.session.commit()
-        flash("記事キーワードを登録しました。Workerが順次処理します。")
-        return redirect(url_for('routes.admin_log', site_id=site_id))
-
-    return render_template('auto_post.html', form=form, sites=sites, prompt_templates=templates)
 
 @routes_bp.route('/admin/log/<int:site_id>')
 @login_required
