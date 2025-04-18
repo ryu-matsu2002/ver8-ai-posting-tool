@@ -17,21 +17,30 @@ def init_app(app):
     def scheduled_task():
         with app.app_context():
             try:
-                # ✅ 現在時刻（UTCで統一）
                 now_utc = datetime.utcnow()
 
-                # ✅ ① 生成待ち → 生成中 に変更する処理を追加
-                pending_posts = ScheduledPost.query.filter(
+                # ✅ ① 記事生成対象を「生成中」に変更（ワーカーに拾わせる）
+                generate_targets = ScheduledPost.query.filter(
                     ScheduledPost.status == "生成待ち",
                     ScheduledPost.scheduled_time <= now_utc
-                ).all()
+                ).order_by(ScheduledPost.scheduled_time).limit(3).all()
 
-                for post in pending_posts:
-                    print(f"🔄 ステータス更新: 生成待ち → 生成中 → {post.keyword}")
-                    post.status = "生成中"
-                db.session.commit()
+                for post in generate_targets:
+                    try:
+                        control = GenerationControl.query.filter_by(user_id=post.user_id).first()
+                        if control and control.stop_flag:
+                            print(f"⏸ 停止フラグ中: {post.keyword}")
+                            continue
 
-                # ✅ ② 投稿処理（status = "生成完了" の記事を投稿）
+                        print(f"🔁 ステータス変更 → 生成中: {post.keyword}")
+                        post.status = "生成中"
+                        db.session.commit()
+
+                    except Exception as e:
+                        print(f"❌ ステータス更新エラー: {post.id} → {e}")
+                        db.session.rollback()
+
+                # ✅ ② 投稿処理
                 post_targets = ScheduledPost.query.filter(
                     ScheduledPost.status == "生成完了",
                     ScheduledPost.scheduled_time <= now_utc
