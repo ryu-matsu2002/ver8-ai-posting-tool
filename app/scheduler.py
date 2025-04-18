@@ -40,7 +40,7 @@ def init_app(app):
                         print(f"❌ ステータス更新エラー: {post.id} → {e}")
                         db.session.rollback()
 
-                # ✅ ② 投稿処理
+                # ✅ ② 投稿処理（"投稿失敗" は除外）
                 post_targets = ScheduledPost.query.filter(
                     ScheduledPost.status == "生成完了",
                     ScheduledPost.scheduled_time <= now_utc
@@ -64,6 +64,8 @@ def init_app(app):
                             db.session.commit()
                             print(f"✅ 投稿成功: {post.title}")
                         else:
+                            post.status = "投稿失敗"  # ← 🔥 ここで失敗を記録
+                            db.session.commit()
                             print(f"❌ 投稿失敗: {post.title}")
 
                     except Exception as e:
