@@ -71,7 +71,7 @@ def auto_post():
                     title="生成中...",
                     body="",
                     featured_image=None,
-                    status="生成待ち",  # ✅ 正しく「生成待ち」に設定
+                    status="生成中",
                     scheduled_time=scheduled_time,
                     created_at=datetime.utcnow(),
                     site_url=site.site_url,

@@ -77,7 +77,7 @@ def auto_post():
                     prompt_title=selected_template.title_prompt,
                     prompt_body=selected_template.body_prompt,
                     featured_image=None,
-                    status="生成待ち",
+                    status="生成中",
                     scheduled_time=schedule_time,
                     created_at=datetime.utcnow(),
                     site_url=site.site_url,
