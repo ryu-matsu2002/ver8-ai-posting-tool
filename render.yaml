@@ -1,4 +1,4 @@
-# 📄 render.yaml（Webサービス + Worker構成 + .env対応）
+# 📄 render.yaml（機密除去済 + .env対応）
 
 services:
   - type: web
@@ -13,6 +13,6 @@ services:
     name: ai-posting-worker
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python app/article_worker.py
+    startCommand: python app/article_worker.py  # ← 🔥ここが重要
     envVars:
       - fromDotEnv: true
