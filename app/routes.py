@@ -68,7 +68,9 @@ def auto_post():
                 h = random.randint(10, 21)
                 m = random.randint(0, 59)
                 candidate = datetime.combine(date_only, dtime(hour=h, minute=m))
-                candidate = jst.localize(candidate.replace(tzinfo=None))
+                # ここを修正: tzinfoが設定されていない場合のみローカライズ
+                if candidate.tzinfo is None:
+                    candidate = jst.localize(candidate)  # ローカライズ処理を追加
                 if all(abs((candidate - t).total_seconds()) >= 7200 for t in times):
                     times.append(candidate)
             schedule_times.extend(sorted(times))
@@ -105,6 +107,7 @@ def auto_post():
         return redirect(url_for('routes.admin_log', site_id=site_id))
 
     return render_template('auto_post.html', form=form, sites=sites, prompt_templates=templates)
+
 
 @routes_bp.route('/edit_post/<int:post_id>', methods=['GET', 'POST'])
 @login_required
